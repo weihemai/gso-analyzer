@@ -1,0 +1,3323 @@
+<html>
+<head>
+    <title>GSO Analyzer Pro</title>
+
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=8" />
+
+    <HTA:APPLICATION
+        APPLICATIONNAME="GSO Analyzer Pro"
+        BORDER="thick"
+        BORDERSTYLE="normal"
+        CAPTION="yes"
+        SHOWINTASKBAR="yes"
+        SINGLEINSTANCE="yes"
+        SYSMENU="yes"
+        WINDOWSTATE="normal"
+        SCROLL="yes"
+    />
+
+    <style>
+        body {
+            font-family: Segoe UI, Arial, sans-serif;
+            font-size: 15px;
+            margin: 0;
+            padding: 0;
+            background: #eef3f8;
+            color: #222;
+        }
+
+        .header {
+            background: #243447;
+            color: #fff;
+            padding: 10px;
+        }
+
+        .title {
+            font-size: 22px;
+            font-weight: bold;
+        }
+
+        .subtitle {
+            font-size: 12px;
+            color: #c9d6e3;
+            margin-top: 2px;
+        }
+
+        .toolbar {
+            background: #f7f9fc;
+            border-bottom: 1px solid #cfd8e3;
+            padding: 8px;
+        }
+
+        .toolbar button,
+        .editPane button {
+            margin-right: 4px;
+            margin-bottom: 4px;
+            padding: 5px 11px;
+            border-radius: 3px;
+            border: 1px solid #2b6cb0;
+            background: #2b6cb0;
+            color: #fff;
+            font-size: 13px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .toolbar button:hover,
+        .editPane button:hover {
+            background: #24548a;
+            border-color: #24548a;
+        }
+
+        .toolbar button:disabled,
+        .editPane button:disabled {
+            background: #9a9a9a;
+            border-color: #9a9a9a;
+            color: #ffffff;
+            font-weight: bold;
+            cursor: default;
+        }
+
+        .toolbar input[type=text] {
+            padding: 4px 6px;
+            border: 1px solid #b8c4d1;
+            border-radius: 3px;
+            font-size: 13px;
+        }
+
+        .section {
+            margin: 10px;
+            border: 1px solid #cfd8e3;
+            background: #fff;
+        }
+        .sectionHeader {
+            background: #e7eef7;
+            border-bottom: 1px solid #cfd8e3;
+            padding: 6px 8px;
+            font-weight: bold;
+            font-size: 15px;
+        }
+
+        .sectionBody {
+            padding: 8px;
+            position: relative;
+        }
+
+        .mainLayout {
+            position: relative;
+            min-height: 260px;
+        }
+
+        .mainListContainer {
+            margin-right: 390px;
+            position: relative;
+            min-height: 620px;
+            height: 620px;
+        }
+
+        .tableContainer {
+            overflow-y: auto;
+            overflow-x: hidden;
+            border: 1px solid #cfd8e3;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 230px;
+            background: #fff;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            font-size: 14px;
+        }
+
+        th {
+            background: #dfe8f2;
+            border: 1px solid #cfd8e3;
+            padding: 6px 7px;
+            text-align: left;
+            cursor: pointer;
+        }
+
+        td {
+            border: 1px solid #e6edf5;
+            padding: 4px 6px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        tr.selected {
+            background: #d9ecff;
+        }
+
+        tr.updated td {
+            color: #0a7a2f;
+            font-weight: bold;
+        }
+
+        tr.muted td {
+            color: #999;
+            background: #f7f7f7;
+        }
+
+        .searchArea {
+            float: right;
+            font-weight: normal;
+        }
+
+        .searchArea input[type=text] {
+            margin-left: 8px;
+            padding: 4px 8px;
+        }
+
+        .editPane {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 370px;
+            border-left: 1px solid #cfd8e3;
+            padding-left: 8px;
+            font-size: 13px;
+            overflow-y: auto;
+            background: #ffffff;
+        }
+
+        .fieldRow {
+            margin-bottom: 8px;
+        }
+
+        .fieldLabel {
+            display: inline-block;
+            width: 90px;
+            font-weight: bold;
+            vertical-align: top;
+        }
+
+        .fieldInput {
+            display: inline-block;
+            width: 250px;
+        }
+
+        input[type=text],
+        input[type=number] {
+            width: 200px;
+            padding: 4px;
+            border: 1px solid #b8c4d1;
+            border-radius: 3px;
+            font-size: 13px;
+        }
+
+        select.statusSelect {
+            width: 120px;
+            padding: 3px;
+            font-size: 12px;
+            margin-left: 10px;
+            border: 1px solid #b8c4d1;
+            border-radius: 3px;
+        }
+
+        select.statusSelect:disabled {
+            color: #999;
+            background: #eee;
+        }
+
+        .scopeRow {
+            margin-bottom: 4px;
+        }
+
+        .scopeRow label {
+            font-weight: bold;
+        }
+
+        .chip {
+            display: inline-block;
+            padding: 1px 6px;
+            margin: 1px 2px 1px 0;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: bold;
+            color: #fff;
+            line-height: 15px;
+        }
+
+        .chip.notified { background: #2e7d32; }
+        .chip.suspended { background: #f9a825; color: #4a3800; }
+        .chip.withdrawn { background: #c62828; }
+        .chip.expired { background: #9e9e9e; }
+        .chip.none { background: #cfd8e3; color: #666; }
+
+        .small {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .sidebarSectionHeader {
+            margin: 10px 0 6px 0;
+            font-weight: bold;
+            font-size: 13px;
+            border-bottom: 2px solid #c0ccda;
+            padding-bottom: 3px;
+            text-transform: uppercase;
+            color: #243447;
+        }
+
+        .sidebarDivider {
+            border-top: 1px solid #cfd8e3;
+            margin: 8px 0;
+        }
+
+        #logSection {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            margin-top: 0 !important;
+            margin-bottom: 0;
+            height: 220px;
+            background: #fff;
+        }
+
+        #logSection .sectionBody {
+            height: 170px;
+            box-sizing: border-box;
+        }
+
+        .logBox {
+            height: 100%;
+            overflow: auto;
+            background: #111;
+            color: #ddd;
+            padding: 8px;
+            font-family: Consolas, monospace;
+            font-size: 13px;
+        }
+
+        .timelineInfo {
+            margin-bottom: 5px;
+        }
+
+        .timelineContainer {
+            border: 1px solid #cfd8e3;
+            max-height: 210px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            background: #fff;
+        }
+
+        .timelineTable {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            font-size: 12px;
+        }
+
+        .timelineTable th {
+            background: #dfe8f2;
+            border: 1px solid #cfd8e3;
+            padding: 4px 5px;
+            text-align: left;
+            cursor: default;
+        }
+
+        .timelineTable td {
+            border: 1px solid #e6edf5;
+            padding: 4px 5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .timelineEmpty {
+            color: #666;
+            font-style: italic;
+        }
+
+        .timelineDifferencePositive {
+            color: #0a7a2f;
+            font-weight: bold;
+        }
+
+        .timelineDifferenceNegative {
+            color: #b42318;
+            font-weight: bold;
+        }
+
+        .timelineDifferenceNeutral {
+            color: #666;
+        }
+
+        .diagBox {
+            background: #f7f7f7;
+            border: 1px solid #ddd;
+            padding: 6px;
+            font-family: Consolas, monospace;
+            font-size: 11px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            max-height: 160px;
+            overflow: auto;
+        }
+
+        .ok { color: #4cd964; }
+        .err { color: #ff6b6b; }
+        .warn { color: #ffd166; }
+        .info { color: #7dcfff; }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+
+    <script language="javascript">
+        var fso = null;
+        var appFolder = "";
+        var dataFile = "";
+        var configFile = "";
+
+        var appVersion = "V1.3.0";
+
+        var REG_LIST_URL = "https://www.gso.org.sa/nb/notified-body-list";
+
+        var SCOPE_KEYS = ["toys", "lv", "wer", "sc", "ga", "mslv"];
+        var SCOPE_LABELS = { toys: "TOYS", lv: "LV", wer: "WER", sc: "MS-SC", ga: "MS-GA", mslv: "MS-LV" };
+
+        var STATUS_ORDER = ["notified", "suspended", "withdrawn", "expired"];
+        var STATUS_LABELS = { notified: "Notified", suspended: "Suspended", withdrawn: "Withdrawn", expired: "Expired" };
+
+        var REG_SCOPE_MAP = [
+            { label: "Children Toys", key: "toys" },
+            { label: "Water Conservation", key: "wer" },
+            { label: "Electrical Appliances - MS", key: "mslv" },
+            { label: "Electrical Appliances", key: "lv" },
+            { label: "Gas Appliances", key: "ga" },
+            { label: "Scooters", key: "sc" }
+        ];
+
+        var STATUS_WORDS = {
+            "NOTIFIED": "notified",
+            "SUSPENDED": "suspended",
+            "WITHDRAWN": "withdrawn",
+            "EXPIRED": "expired"
+        };
+
+        var COUNTRY_FULL_TO_ISO = {
+            "SAUDI ARABIA": "SA",
+            "UNITED ARAB EMIRATES": "AE",
+            "HONG KONG": "HK",
+            "CHINA": "CN",
+            "REPUBLIC OF KOREA": "KR",
+            "EGYPT": "EG",
+            "BELGIUM": "BE",
+            "BRAZIL": "BR",
+            "GERMANY": "DE",
+            "DENMARK": "DK",
+            "SPAIN": "ES",
+            "FRANCE": "FR",
+            "UNITED KINGDOM": "GB",
+            "ITALY": "IT",
+            "JAPAN": "JP",
+            "MEXICO": "MX",
+            "MALAYSIA": "MY",
+            "NETHERLANDS": "NL",
+            "NORWAY": "NO",
+            "SINGAPORE": "SG",
+            "SWEDEN": "SE",
+            "THAILAND": "TH",
+            "TURKEY": "TR",
+            "UNITED STATES": "US"
+        };
+
+        var GROUP_DICT = {
+            "BUREAU VERITAS": "BV",
+            "LCIE": "BV",
+            "TUV RHEINLAND": "TUVRH",
+            "T\u00DCV RHEINLAND": "TUVRH",
+            "TUV SUD": "TUV-SUD",
+            "T\u00DCV S\u00DCD": "TUV-SUD",
+            "TUV AUSTRIA": "TUVAT",
+            "T\u00DCV AUSTRIA": "TUVAT",
+            "TUVAUSTRIA": "TUVAT",
+            "T U V S W": "TUVSW",
+            "TUVSW": "TUVSW",
+            "INTERTEK": "Intertek",
+            "COTECNA": "COTECNA",
+            "EUROFINS": "EF",
+            "IMQ": "IMQ",
+            "NEMKO": "NEMKO",
+            "DEKRA": "DEKRA",
+            "KOREA TESTING ********ION": "KTC",
+            "KOREA TESTING LABORATORY": "KTL",
+            "KOREA TESTING": "KTR",
+            "SIRIM": "SIRIM",
+            "MOIAT": "MOIAT",
+            "SASO": "SASO",
+            "SAITCO": "SAITCO",
+            "MOTABAQAH": "MOTABAQAH",
+            "APAVE": "APAVE",
+            "BSI": "BSI",
+            "VDE": "VDE",
+            "AENOR": "AENOR",
+            "QIMA": "QIMA",
+            "UL VS": "UL",
+            "UL LLC": "UL",
+            "UL INTERNATIONAL": "UL",
+            "TSE": "TSE",
+            "SGS-CSTC": "SGS",
+            "SGS": "SGS"
+        };
+
+        var CITY_ABBREV = {
+            "GUANGZHOU": "GZ",
+            "SHANGHAI": "SH",
+            "SHENZHEN": "SZ",
+            "BEIJING": "BJ",
+            "HANGZHOU": "HZ",
+            "FOSHAN": "FS",
+            "XIAMEN": "XM",
+            "SUZHOU": "SU"
+        };
+
+        var NBs = {};
+        var config = {
+            step: 2000,
+            threshold: 1,
+            verbose: true,
+            cleanupDone: false
+        };
+
+        var groupKeysSorted = [];
+
+        var selectedId = "";
+        var updatedThisSession = {};
+        var sortKey = "id";
+        var sortAsc = true;
+
+        var isScanning = false;
+        var shouldStop = false;
+        var scanIds = [];
+        var scanIndex = 0;
+        var currentScan = null;
+
+        var isSyncing = false;
+        var syncState = null;
+
+        var LOG_MAX_LINES = 500;
+
+        function init() {
+            try {
+                fso = new ActiveXObject("Scripting.FileSystemObject");
+                appFolder = getAppFolder();
+                dataFile = appFolder + "\\data.json";
+                configFile = appFolder + "\\config.json";
+
+                applyVersion();
+                setText("appPath", appFolder);
+
+                buildGroupKeys();
+                loadConfig();
+                loadData();
+                maybeRunDataCleanup();
+                attachEditorHandlers();
+                renderTable();
+
+                updateStatus("Ready");
+                log("Application initialized.", "ok");
+
+                updateLayout();
+                window.onresize = updateLayout;
+
+                setTimeout(function() { startSync(false); }, 800);
+            } catch (e) {
+                alert("Initialization failed: " + e.message);
+            }
+        }
+
+        function buildGroupKeys() {
+            groupKeysSorted = [];
+            for (var k in GROUP_DICT) {
+                if (GROUP_DICT.hasOwnProperty(k)) {
+                    groupKeysSorted.push(k);
+                }
+            }
+            groupKeysSorted.sort(function(a, b) {
+                return b.length - a.length;
+            });
+        }
+
+        function applyVersion() {
+            setText("appTitle", "GSO Analyzer Pro " + appVersion);
+            setText(
+                "appSubtitle",
+                "HTA simplified edition | Direct GSO access | Register sync | Per-scope status | " + appVersion
+            );
+
+            try {
+                document.title = "GSO Analyzer Pro " + appVersion;
+            } catch (e) {
+            }
+        }
+
+        function getAppFolder() {
+            var path = unescape(window.location.pathname);
+            path = path.replace(/\//g, "\\");
+
+            if (path.charAt(0) === "\\") {
+                path = path.substr(1);
+            }
+
+            return path.substring(0, path.lastIndexOf("\\"));
+        }
+
+        function setText(id, txt) {
+            document.getElementById(id).innerText = txt;
+        }
+
+        function log(msg, cls) {
+            var out = document.getElementById("logOutput");
+            var div = document.createElement("div");
+
+            div.className = cls || "";
+            div.innerText = "[" + timeStamp() + "] " + msg;
+
+            out.appendChild(div);
+
+            while (out.childNodes.length > LOG_MAX_LINES) {
+                out.removeChild(out.firstChild);
+            }
+
+            out.scrollTop = out.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById("logOutput").innerHTML = "";
+        }
+
+        function timeStamp() {
+            var d = new Date();
+            return pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds());
+        }
+
+        function pad(n) {
+            return (n < 10 ? "0" : "") + n;
+        }
+
+        function updateStatus(msg) {
+            setText("statusText", msg + " | Last UI update: " + new Date().toLocaleTimeString());
+        }
+
+        function fileExists(path) {
+            return fso.FileExists(path);
+        }
+
+        function readTextFile(path) {
+            var stream = new ActiveXObject("ADODB.Stream");
+
+            stream.Type = 2;
+            stream.Charset = "utf-8";
+            stream.Open();
+            stream.LoadFromFile(path);
+
+            var txt = stream.ReadText(-1);
+
+            stream.Close();
+
+            return txt;
+        }
+
+        function backupFile(path) {
+            try {
+                fso.CopyFile(path, path + ".bak", true);
+            } catch (e) {
+            }
+        }
+
+        function backupDatedDataFile() {
+            try {
+                if (fileExists(dataFile)) {
+                    fso.CopyFile(dataFile, dataFile + ".bak-" + getDateStamp() + "-" + pad(new Date().getHours()) + pad(new Date().getMinutes()) + pad(new Date().getSeconds()), true);
+                }
+            } catch (e) {
+                log("Dated backup failed: " + e.message, "warn");
+            }
+        }
+
+        function writeTextFile(path, content) {
+            var tmp = path + ".tmp";
+            var stream = new ActiveXObject("ADODB.Stream");
+
+            stream.Type = 2;
+            stream.Charset = "utf-8";
+            stream.Open();
+            stream.WriteText(String(content));
+            stream.Position = 0;
+            stream.SaveToFile(tmp, 2);
+            stream.Close();
+
+            try {
+                if (fso.FileExists(path)) {
+                    backupFile(path);
+                    fso.DeleteFile(path, true);
+                }
+                fso.MoveFile(tmp, path);
+            } catch (e) {
+                if (fso.FileExists(tmp)) {
+                    try { fso.DeleteFile(tmp, true); } catch (e2) {
+                    }
+                }
+                throw e;
+            }
+        }
+
+        function cleanJsonText(txt) {
+            txt = String(txt);
+
+            if (txt.length > 0 && txt.charCodeAt(0) === 65279) {
+                txt = txt.substring(1);
+            }
+
+            txt = txt.replace(/^\s+/, "");
+
+            return txt;
+        }
+
+        function previewText(txt) {
+            txt = String(txt);
+            txt = txt.replace(/\r/g, "\\r");
+            txt = txt.replace(/\n/g, "\\n");
+
+            if (txt.length > 140) {
+                txt = txt.substring(0, 140) + "...";
+            }
+
+            return txt;
+        }
+
+        function parseJsonSafe(txt) {
+            txt = cleanJsonText(txt);
+
+            try {
+                if (typeof JSON !== "undefined" && JSON.parse) {
+                    return JSON.parse(txt);
+                }
+            } catch (e1) {
+            }
+
+            try {
+                return eval("(" + txt + ")");
+            } catch (e2) {
+                throw new Error(
+                    "JSON parse failed: " + e2.message +
+                    " | Preview: " + previewText(txt)
+                );
+            }
+        }
+
+        function stringifyJson(obj) {
+            if (typeof JSON !== "undefined" && JSON.stringify) {
+                return JSON.stringify(obj, null, 2);
+            }
+
+            return simpleStringify(obj, 0);
+        }
+
+        function simpleStringify(value, level) {
+            var i, k, parts, indent, nextIndent;
+
+            if (value === null) {
+                return "null";
+            }
+
+            if (typeof value === "string") {
+                return "\"" +
+                    value
+                        .replace(/\\/g, "\\\\")
+                        .replace(/"/g, "\\\"")
+                        .replace(/\r/g, "\\r")
+                        .replace(/\n/g, "\\n")
+                        .replace(/\t/g, "\\t") +
+                    "\"";
+            }
+
+            if (typeof value === "number" || typeof value === "boolean") {
+                return String(value);
+            }
+
+            indent = repeatStr("  ", level);
+            nextIndent = repeatStr("  ", level + 1);
+
+            if (isArray(value)) {
+                parts = [];
+
+                for (i = 0; i < value.length; i++) {
+                    parts.push(nextIndent + simpleStringify(value[i], level + 1));
+                }
+
+                return "[\n" + parts.join(",\n") + "\n" + indent + "]";
+            }
+
+            parts = [];
+
+            for (k in value) {
+                if (value.hasOwnProperty(k)) {
+                    parts.push(
+                        nextIndent +
+                        "\"" + k.replace(/\\/g, "\\\\").replace(/"/g, "\\\"") + "\": " +
+                        simpleStringify(value[k], level + 1)
+                    );
+                }
+            }
+
+            return "{\n" + parts.join(",\n") + "\n" + indent + "}";
+        }
+
+        function isArray(v) {
+            return Object.prototype.toString.call(v) === "[object Array]";
+        }
+
+        function repeatStr(s, count) {
+            var out = "";
+
+            while (count > 0) {
+                out += s;
+                count--;
+            }
+
+            return out;
+        }
+
+        function trim(s) {
+            return String(s).replace(/^[\s\u00a0\u200e\u200f]+|[\s\u00a0\u200e\u200f]+$/g, "");
+        }
+
+        function squash(s) {
+            return trim(String(s).replace(/[\u00a0\u200e\u200f]/g, " ").replace(/\s+/g, " "));
+        }
+
+        function countKeys(obj) {
+            var c = 0;
+            var k;
+
+            for (k in obj) {
+                if (obj.hasOwnProperty(k)) {
+                    c++;
+                }
+            }
+
+            return c;
+        }
+
+        function normalizeTimeline(timeline) {
+            var clean = {};
+            var k;
+            var value;
+
+            if (!timeline || typeof timeline !== "object") {
+                return clean;
+            }
+
+            for (k in timeline) {
+                if (timeline.hasOwnProperty(k)) {
+                    if (/^\d{4}-\d{2}-\d{2}$/.test(k)) {
+                        value = parseInt(timeline[k], 10);
+
+                        if (!isNaN(value) && value >= 0) {
+                            clean[k] = value;
+                        }
+                    }
+                }
+            }
+
+            return clean;
+        }
+
+        function cloneTimeline(timeline) {
+            var copy = {};
+            var k;
+
+            if (!timeline) {
+                return copy;
+            }
+
+            for (k in timeline) {
+                if (timeline.hasOwnProperty(k)) {
+                    copy[k] = timeline[k];
+                }
+            }
+
+            return copy;
+        }
+
+        function validStatus(s) {
+            return STATUS_LABELS.hasOwnProperty(String(s).toLowerCase()) ? String(s).toLowerCase() : "";
+        }
+
+        function isoCountry(c) {
+            var up = String(c || "").toUpperCase();
+
+            if (COUNTRY_FULL_TO_ISO.hasOwnProperty(up)) {
+                return COUNTRY_FULL_TO_ISO[up];
+            }
+
+            return up;
+        }
+
+        function normalizeNB(id, obj) {
+            if (!obj) {
+                obj = {};
+            }
+
+            var nb = {
+                nb_shortname: squash(obj.nb_shortname || ""),
+                nb_fullname: squash(obj.nb_fullname || ""),
+                nb_country: isoCountry(String(obj.nb_country || "")),
+                nb_scope_toys: !!obj.nb_scope_toys,
+                nb_scope_lv: !!obj.nb_scope_lv,
+                nb_scope_wer: !!obj.nb_scope_wer,
+                nb_scope_sc: !!obj.nb_scope_sc,
+                nb_scope_ga: !!obj.nb_scope_ga,
+                nb_scope_mslv: !!obj.nb_scope_mslv,
+                nb_number_gcts: parseInt(obj.nb_number_gcts, 10) || 0,
+                nb_number_gcts_timeline: normalizeTimeline(obj.nb_number_gcts_timeline),
+                nb_previous_names: isArray(obj.nb_previous_names) ? obj.nb_previous_names : [],
+                nb_shortname_manual: !!obj.nb_shortname_manual
+            };
+
+            var k, st, key;
+
+            for (k = 0; k < SCOPE_KEYS.length; k++) {
+                key = SCOPE_KEYS[k];
+                st = validStatus(obj["nb_status_" + key]);
+                nb["nb_status_" + key] = st;
+
+                if (nb["nb_scope_" + key] && !nb["nb_status_" + key]) {
+                    nb["nb_status_" + key] = "notified";
+                }
+            }
+
+            return nb;
+        }
+
+        function hasActiveScope(nb) {
+            if (!nb) {
+                return false;
+            }
+
+            for (var i = 0; i < SCOPE_KEYS.length; i++) {
+                if (nb["nb_scope_" + SCOPE_KEYS[i]] && nb["nb_status_" + SCOPE_KEYS[i]] === "notified") {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        function deriveAggregateStatus(nb) {
+            for (var p = 0; p < STATUS_ORDER.length; p++) {
+                for (var i = 0; i < SCOPE_KEYS.length; i++) {
+                    if (nb["nb_scope_" + SCOPE_KEYS[i]] && nb["nb_status_" + SCOPE_KEYS[i]] === STATUS_ORDER[p]) {
+                        return STATUS_ORDER[p];
+                    }
+                }
+            }
+
+            return "";
+        }
+
+        function loadConfig() {
+            try {
+                if (fileExists(configFile)) {
+                    var txt = readTextFile(configFile);
+                    var obj = parseJsonSafe(txt);
+
+                    if (typeof obj.step !== "undefined") {
+                        var s = parseInt(obj.step, 10);
+                        config.step = (!isNaN(s) && s > 0) ? s : 2000;
+                    }
+
+                    if (typeof obj.threshold !== "undefined") {
+                        var t = parseInt(obj.threshold, 10);
+                        config.threshold = (!isNaN(t) && t >= 0) ? t : 1;
+                    }
+
+                    if (typeof obj.verbose !== "undefined") {
+                        config.verbose = !!obj.verbose;
+                    }
+
+                    if (typeof obj.cleanupDone !== "undefined") {
+                        config.cleanupDone = !!obj.cleanupDone;
+                    }
+
+                    log("Loaded config.json", "ok");
+                } else {
+                    saveConfig();
+                    log("config.json not found. Default config created.", "warn");
+                }
+            } catch (e) {
+                log("Failed to load config.json: " + e.message, "err");
+            }
+
+            document.getElementById("cfgStep").value = config.step;
+            document.getElementById("cfgThreshold").value = config.threshold;
+            document.getElementById("cfgVerbose").checked = config.verbose;
+        }
+
+        function saveConfig() {
+            try {
+                writeTextFile(configFile, stringifyJson(config));
+                log("Saved config.json", "ok");
+            } catch (e) {
+                log("Failed to save config.json: " + e.message, "err");
+            }
+        }
+
+        function loadData() {
+            try {
+                if (!fileExists(dataFile)) {
+                    log("data.json not found in app folder.", "warn");
+                    NBs = {};
+                    selectedId = "";
+                    clearForm();
+                    setSidebarEnabled(false);
+                    return;
+                }
+
+                var txt = readTextFile(dataFile);
+                var raw = parseJsonSafe(txt);
+                var clean = {};
+
+                for (var k in raw) {
+                    if (raw.hasOwnProperty(k)) {
+                        clean[k] = normalizeNB(k, raw[k]);
+                    }
+                }
+
+                NBs = clean;
+
+                log("Loaded data.json with " + countKeys(NBs) + " record(s) (schema v2).", "ok");
+
+                selectedId = "";
+                clearForm();
+                setSidebarEnabled(false);
+            } catch (e) {
+                NBs = {};
+                log("Failed to load data.json: " + e.message, "err");
+            }
+        }
+
+        function saveData() {
+            try {
+                writeTextFile(dataFile, stringifyJson(NBs));
+                updateStatus("Data saved");
+                log("Saved data.json", "ok");
+            } catch (e) {
+                log("Failed to save data.json: " + e.message, "err");
+                alert("Failed to save data.json: " + e.message);
+            }
+        }
+
+        function isCorruptName(name) {
+            var n = String(name || "");
+            return trim(n) === "" || n.indexOf("********") >= 0;
+        }
+
+        function shortnameExists(name, excludeId) {
+            for (var id in NBs) {
+                if (NBs.hasOwnProperty(id) && id !== excludeId && NBs[id].nb_shortname === name) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        function proposeShortnameCleanup() {
+            var proposals = [];
+            var ids = [];
+
+            for (var id in NBs) {
+                if (NBs.hasOwnProperty(id)) {
+                    ids.push(id);
+                }
+            }
+
+            ids.sort();
+
+            for (var i = 0; i < ids.length; i++) {
+                var nb = NBs[ids[i]];
+                var cur = nb.nb_shortname;
+                var fixed = cur;
+
+                if (/-KSA$/i.test(cur)) {
+                    fixed = cur.replace(/-KSA$/i, "-SA");
+                } else if (/-UK$/i.test(cur)) {
+                    fixed = cur.replace(/-UK$/i, "-GB");
+                }
+
+                if (fixed !== cur && fixed !== "" && !shortnameExists(fixed, ids[i])) {
+                    proposals.push({ id: ids[i], from: cur, to: fixed });
+                }
+            }
+
+            return proposals;
+        }
+
+        function maybeRunDataCleanup() {
+            if (config.cleanupDone || countKeys(NBs) === 0) {
+                return;
+            }
+
+            var proposals = proposeShortnameCleanup();
+            var changedCountry = 0;
+            var repairedNames = 0;
+            var id, nb;
+
+            for (id in NBs) {
+                if (NBs.hasOwnProperty(id)) {
+                    nb = NBs[id];
+
+                    if (COUNTRY_FULL_TO_ISO.hasOwnProperty(String(nb.nb_country).toUpperCase())) {
+                        changedCountry++;
+                    }
+
+                    if (isCorruptName(nb.nb_fullname)) {
+                        repairedNames++;
+                    }
+                }
+            }
+
+            if (proposals.length === 0 && changedCountry === 0 && repairedNames === 0) {
+                config.cleanupDone = true;
+                saveConfig();
+                return;
+            }
+
+            var msg = "One-time data cleanup:\n\n";
+
+            if (proposals.length > 0) {
+                msg += "Shortname country codes (KSA->SA, UK->GB):\n";
+
+                for (var i2 = 0; i2 < proposals.length; i2++) {
+                    msg += "  " + proposals[i2].id + ": " + proposals[i2].from + " -> " + proposals[i2].to + "\n";
+                }
+
+                msg += "\n";
+            }
+
+            if (changedCountry > 0) {
+                msg += changedCountry + " country field(s) will be normalized to ISO 3166 codes (e.g. EGYPT -> EG).\n";
+            }
+
+            if (repairedNames > 0) {
+                msg += repairedNames + " corrupted name(s) detected - these will be repaired by the first register sync.\n";
+            }
+
+            msg += "\nApply?";
+
+            if (confirm(msg)) {
+                for (var j = 0; j < proposals.length; j++) {
+                    NBs[proposals[j].id].nb_shortname = proposals[j].to;
+                    log("Cleanup: " + proposals[j].id + " shortname " + proposals[j].from + " -> " + proposals[j].to, "ok");
+                }
+
+                for (var id2 in NBs) {
+                    if (NBs.hasOwnProperty(id2)) {
+                        NBs[id2].nb_country = isoCountry(NBs[id2].nb_country);
+                    }
+                }
+
+                saveData();
+            } else {
+                log("Data cleanup declined by user.", "warn");
+            }
+
+            config.cleanupDone = true;
+            saveConfig();
+        }
+
+        function getList() {
+            var list = [];
+            var filterElem = document.getElementById("searchInput");
+            var filter = "";
+            var id, item, text;
+
+            if (filterElem && typeof filterElem.value === "string") {
+                filter = filterElem.value.toLowerCase();
+            }
+
+            for (id in NBs) {
+                if (NBs.hasOwnProperty(id)) {
+                    item = NBs[id];
+
+                    text = (
+                        id + " " +
+                        item.nb_shortname + " " +
+                        item.nb_fullname + " " +
+                        item.nb_country
+                    ).toLowerCase();
+
+                    if (filter === "" || text.indexOf(filter) >= 0) {
+                        list.push({
+                            id: id,
+                            nb_shortname: item.nb_shortname,
+                            nb_fullname: item.nb_fullname,
+                            nb_country: item.nb_country,
+                            nb_status_agg: deriveAggregateStatus(item),
+                            nb_active: hasActiveScope(item),
+                            nb_number_gcts: item.nb_number_gcts
+                        });
+                    }
+                }
+            }
+
+            list.sort(function(a, b) {
+                var va, vb;
+
+                if (sortKey === "nb_number_gcts") {
+                    va = parseInt(a.nb_number_gcts, 10) || 0;
+                    vb = parseInt(b.nb_number_gcts, 10) || 0;
+
+                    return sortAsc ? (va - vb) : (vb - va);
+                }
+
+                if (sortKey === "nb_status_agg") {
+                    va = STATUS_ORDER.indexOf(a.nb_status_agg) >= 0 ? STATUS_ORDER.indexOf(a.nb_status_agg) : 99;
+                    vb = STATUS_ORDER.indexOf(b.nb_status_agg) >= 0 ? STATUS_ORDER.indexOf(b.nb_status_agg) : 99;
+
+                    return sortAsc ? (va - vb) : (vb - va);
+                }
+
+                va = String(a[sortKey]).toLowerCase();
+                vb = String(b[sortKey]).toLowerCase();
+
+                if (va < vb) {
+                    return sortAsc ? -1 : 1;
+                }
+
+                if (va > vb) {
+                    return sortAsc ? 1 : -1;
+                }
+
+                return 0;
+            });
+
+            return list;
+        }
+
+        function renderTable() {
+            var tbody = document.getElementById("tableBody");
+
+            if (!tbody) {
+                log("renderTable: tableBody element not found.", "err");
+                return;
+            }
+
+            var list = getList();
+            var i, item, nb, tr, td, cls, k, chip, anyScope = false, activeCount = 0, shortB;
+
+            while (tbody.firstChild) {
+                tbody.removeChild(tbody.firstChild);
+            }
+
+            for (i = 0; i < list.length; i++) {
+                item = list[i];
+                nb = NBs[item.id];
+
+                tr = document.createElement("tr");
+                cls = "";
+
+                if (item.id === selectedId) {
+                    cls = "selected";
+                }
+
+                if (updatedThisSession[item.id]) {
+                    cls = cls ? (cls + " updated") : "updated";
+                }
+
+                if (!item.nb_active) {
+                    cls = cls ? (cls + " muted") : "muted";
+                }
+
+                tr.className = cls;
+                tr.onclick = makeSelectHandler(item.id);
+
+                td = tr.insertCell(-1);
+                td.style.width = "60px";
+                td.appendChild(document.createTextNode(item.id));
+
+                td = tr.insertCell(-1);
+                td.style.width = "120px";
+
+                shortB = document.createElement("b");
+                shortB.appendChild(document.createTextNode(item.nb_shortname));
+                td.appendChild(shortB);
+
+                td = tr.insertCell(-1);
+                td.appendChild(document.createTextNode(item.nb_fullname));
+
+                td = tr.insertCell(-1);
+                td.style.width = "45px";
+                td.appendChild(document.createTextNode(item.nb_country));
+
+                td = tr.insertCell(-1);
+                td.style.width = "175px";
+
+                for (k = 0; k < SCOPE_KEYS.length; k++) {
+                    if (nb["nb_scope_" + SCOPE_KEYS[k]]) {
+                        anyScope = true;
+
+                        chip = document.createElement("span");
+                        chip.className = "chip " + (nb["nb_status_" + SCOPE_KEYS[k]] || "notified");
+                        chip.appendChild(document.createTextNode(SCOPE_LABELS[SCOPE_KEYS[k]]));
+                        td.appendChild(chip);
+                    }
+                }
+
+                if (!anyScope) {
+                    td.appendChild(document.createTextNode("-"));
+                }
+
+                anyScope = false;
+
+                td = tr.insertCell(-1);
+                td.style.width = "95px";
+
+                chip = document.createElement("span");
+                chip.className = "chip " + (item.nb_status_agg || "none");
+                chip.appendChild(document.createTextNode(item.nb_status_agg ? STATUS_LABELS[item.nb_status_agg] : "none"));
+                td.appendChild(chip);
+
+                if (item.nb_active) {
+                    activeCount++;
+                }
+
+                td = tr.insertCell(-1);
+                td.style.width = "85px";
+                td.appendChild(document.createTextNode(String(item.nb_number_gcts)));
+
+                tbody.appendChild(tr);
+            }
+
+            setText("recordCount", list.length + " record(s) | " + activeCount + " scannable");
+            updateLayout();
+        }
+
+        function makeSelectHandler(id) {
+            return function() {
+                selectNB(id);
+            };
+        }
+
+        function selectNB(id) {
+            selectedId = id;
+
+            loadSelectedToForm(id);
+            setSidebarEnabled(true);
+            renderTable();
+        }
+
+        function makeScopeHandler(key) {
+            return function() {
+                onScopeCheckbox(key);
+            };
+        }
+
+        function onScopeCheckbox(key) {
+            var cb = document.getElementById("fld" + key);
+            var sel = document.getElementById("st" + key);
+
+            if (!cb || !sel) {
+                return;
+            }
+
+            if (cb.checked) {
+                sel.disabled = false;
+
+                if (!validStatus(sel.value)) {
+                    sel.value = "notified";
+                }
+            } else {
+                sel.disabled = true;
+                sel.value = "";
+            }
+        }
+
+        function attachEditorHandlers() {
+            var i, key, cb;
+
+            for (i = 0; i < SCOPE_KEYS.length; i++) {
+                key = SCOPE_KEYS[i];
+                cb = document.getElementById("fld" + key);
+
+                if (cb) {
+                    cb.onclick = makeScopeHandler(key);
+                }
+            }
+        }
+
+        function loadSelectedToForm(id) {
+            var nb = NBs[id];
+
+            if (!nb) {
+                return;
+            }
+
+            document.getElementById("fldId").value = id;
+            document.getElementById("fldShort").value = nb.nb_shortname;
+            document.getElementById("fldFull").value = nb.nb_fullname;
+            document.getElementById("fldCountry").value = nb.nb_country;
+
+            var k, key, prev = "";
+
+            for (k = 0; k < SCOPE_KEYS.length; k++) {
+                key = SCOPE_KEYS[k];
+                document.getElementById("fld" + key).checked = !!nb["nb_scope_" + key];
+                document.getElementById("st" + key).value = nb["nb_status_" + key] || "";
+                document.getElementById("st" + key).disabled = !nb["nb_scope_" + key];
+            }
+
+            document.getElementById("fldGcts").value = nb.nb_number_gcts;
+
+            setText("selectedLabel", "Selected NB: " + id);
+
+            for (k = 0; k < nb.nb_previous_names.length; k++) {
+                var pn = nb.nb_previous_names[k];
+
+                prev += (prev ? " | " : "") + (pn && pn.name ? pn.name : String(pn));
+            }
+
+            setText("prevNames", prev ? "Previous names: " + prev : "No previous names recorded.");
+
+            renderTimeline(id);
+        }
+
+        function renderTimeline(id) {
+            var tbody = document.getElementById("timelineBody");
+            var info = document.getElementById("timelineInfo");
+            var nb, timeline, dates;
+            var i, tr, td, dateKey, currentValue, previousValue, difference;
+
+            if (!tbody) {
+                return;
+            }
+
+            while (tbody.firstChild) {
+                tbody.removeChild(tbody.firstChild);
+            }
+
+            if (!id || !NBs[id]) {
+                if (info) {
+                    info.innerText = "No NB selected.";
+                }
+
+                tr = document.createElement("tr");
+
+                td = tr.insertCell(-1);
+                td.colSpan = 3;
+                td.className = "timelineEmpty";
+                td.appendChild(document.createTextNode("No timeline data available."));
+
+                tbody.appendChild(tr);
+                return;
+            }
+
+            nb = NBs[id];
+            timeline = nb.nb_number_gcts_timeline || {};
+            dates = [];
+
+            for (dateKey in timeline) {
+                if (timeline.hasOwnProperty(dateKey)) {
+                    dates.push(dateKey);
+                }
+            }
+
+            dates.sort();
+            dates.reverse();
+
+            if (info) {
+                if (dates.length === 0) {
+                    info.innerText = "No historical snapshots stored.";
+                } else {
+                    info.innerText =
+                        dates.length + " snapshot(s) | Latest: " +
+                        dates[0] + " = " + timeline[dates[0]];
+                }
+            }
+
+            if (dates.length === 0) {
+                tr = document.createElement("tr");
+
+                td = tr.insertCell(-1);
+                td.colSpan = 3;
+                td.className = "timelineEmpty";
+                td.appendChild(document.createTextNode("No timeline data available."));
+
+                tbody.appendChild(tr);
+                return;
+            }
+
+            for (i = 0; i < dates.length; i++) {
+                dateKey = dates[i];
+                currentValue = parseInt(timeline[dateKey], 10) || 0;
+
+                tr = document.createElement("tr");
+
+                td = tr.insertCell(-1);
+                td.style.width = "110px";
+                td.appendChild(document.createTextNode(dateKey));
+
+                td = tr.insertCell(-1);
+                td.style.width = "75px";
+                td.appendChild(document.createTextNode(String(currentValue)));
+
+                td = tr.insertCell(-1);
+
+                if (i < dates.length - 1) {
+                    previousValue = parseInt(timeline[dates[i + 1]], 10) || 0;
+                    difference = currentValue - previousValue;
+
+                    if (difference > 0) {
+                        td.className = "timelineDifferencePositive";
+                        td.appendChild(
+                            document.createTextNode("+" + difference)
+                        );
+                    } else if (difference < 0) {
+                        td.className = "timelineDifferenceNegative";
+                        td.appendChild(
+                            document.createTextNode(String(difference))
+                        );
+                    } else {
+                        td.className = "timelineDifferenceNeutral";
+                        td.appendChild(document.createTextNode("0"));
+                    }
+                } else {
+                    td.className = "timelineDifferenceNeutral";
+                    td.appendChild(document.createTextNode("-"));
+                }
+
+                tbody.appendChild(tr);
+            }
+        }
+
+        function clearForm() {
+            document.getElementById("fldId").value = "";
+            document.getElementById("fldShort").value = "";
+            document.getElementById("fldFull").value = "";
+            document.getElementById("fldCountry").value = "";
+
+            var k, key;
+
+            for (k = 0; k < SCOPE_KEYS.length; k++) {
+                key = SCOPE_KEYS[k];
+                document.getElementById("fld" + key).checked = false;
+                document.getElementById("st" + key).value = "";
+                document.getElementById("st" + key).disabled = true;
+            }
+
+            document.getElementById("fldGcts").value = "0";
+
+            setText("selectedLabel", "Selected NB: none");
+            setText("prevNames", "No previous names recorded.");
+
+            renderTimeline("");
+        }
+
+        function setSidebarEnabled(enabled) {
+            var idsInputs = [
+                "fldId",
+                "fldShort",
+                "fldFull",
+                "fldCountry",
+                "fldtoys",
+                "fldlv",
+                "fldwer",
+                "fldsc",
+                "fldga",
+                "fldmslv",
+                "sttoys",
+                "stlv",
+                "stwer",
+                "stsc",
+                "stga",
+                "stmslv",
+                "fldGcts"
+            ];
+
+            var idsButtons = [
+                "btnSave",
+                "btnDeleteSide",
+                "btnCancel"
+            ];
+
+            var i, el;
+
+            for (i = 0; i < idsInputs.length; i++) {
+                el = document.getElementById(idsInputs[i]);
+
+                if (el) {
+                    el.disabled = !enabled;
+                }
+            }
+
+            for (i = 0; i < idsButtons.length; i++) {
+                el = document.getElementById(idsButtons[i]);
+
+                if (el) {
+                    el.disabled = !enabled;
+                }
+            }
+        }
+
+        function saveSelected() {
+            var oldId = selectedId;
+            var newId = trim(document.getElementById("fldId").value);
+            var oldNb, oldGcts, newGcts, nb, k, key;
+
+            if (!oldId || !NBs[oldId]) {
+                alert("No NB selected.");
+                return;
+            }
+
+            if (!/^\d{4,6}$/.test(newId)) {
+                alert("ID must be 4-6 digits (e.g. 0007).");
+                return;
+            }
+
+            oldNb = NBs[oldId];
+
+            var gctsRaw = trim(document.getElementById("fldGcts").value);
+            var parsedGcts = parseInt(gctsRaw, 10);
+
+            if (gctsRaw === "" || isNaN(parsedGcts) || parsedGcts < 0) {
+                alert("GCTS max must be a non-negative number.");
+                return;
+            }
+
+            newGcts = parsedGcts;
+            oldGcts = parseInt(oldNb.nb_number_gcts, 10) || 0;
+
+            var shortRaw = squash(document.getElementById("fldShort").value);
+
+            if (shortRaw === "") {
+                alert("Short name cannot be empty.");
+                return;
+            }
+
+            nb = {
+                nb_shortname: shortRaw,
+                nb_fullname: squash(document.getElementById("fldFull").value),
+                nb_country: isoCountry(document.getElementById("fldCountry").value),
+                nb_number_gcts: newGcts,
+                nb_number_gcts_timeline: cloneTimeline(oldNb.nb_number_gcts_timeline),
+                nb_previous_names: oldNb.nb_previous_names || [],
+                nb_shortname_manual: oldNb.nb_shortname_manual || (shortRaw !== oldNb.nb_shortname)
+            };
+
+            for (k = 0; k < SCOPE_KEYS.length; k++) {
+                key = SCOPE_KEYS[k];
+                var cb = document.getElementById("fld" + key);
+                var sel = document.getElementById("st" + key);
+
+                nb["nb_scope_" + key] = cb.checked;
+                nb["nb_status_" + key] = cb.checked ? (validStatus(sel.value) || "notified") : "";
+            }
+
+            if (newGcts !== oldGcts) {
+                addTimelineEntry(nb, getDateStamp(), newGcts);
+                log(
+                    "Timeline updated for " + oldId +
+                    ": " + oldGcts + " => " + newGcts,
+                    "ok"
+                );
+            }
+
+            if (newId !== oldId) {
+                if (NBs[newId]) {
+                    alert("ID already exists: " + newId);
+                    return;
+                }
+
+                delete NBs[oldId];
+                NBs[newId] = nb;
+                selectedId = newId;
+
+                if (updatedThisSession[oldId]) {
+                    updatedThisSession[newId] = true;
+                    delete updatedThisSession[oldId];
+                }
+
+                log("NB ID changed from " + oldId + " to " + newId, "warn");
+            } else {
+                NBs[oldId] = nb;
+            }
+
+            saveData();
+            renderTable();
+            loadSelectedToForm(selectedId);
+        }
+
+        function cancelEdit() {
+            selectedId = "";
+
+            clearForm();
+            setSidebarEnabled(false);
+            renderTable();
+        }
+
+        function padId(n) {
+            n = String(n);
+
+            while (n.length < 4) {
+                n = "0" + n;
+            }
+
+            return n;
+        }
+
+        function nextFreeId() {
+            var maxId = 0;
+            var k, n;
+
+            for (k in NBs) {
+                if (NBs.hasOwnProperty(k)) {
+                    n = parseInt(k, 10);
+
+                    if (!isNaN(n) && n > maxId) {
+                        maxId = n;
+                    }
+                }
+            }
+
+            return padId(maxId + 1);
+        }
+
+        function addNewNB() {
+            var id = nextFreeId();
+            var k, key;
+
+            NBs[id] = {
+                nb_shortname: "NEW-" + id,
+                nb_fullname: "",
+                nb_country: "",
+                nb_number_gcts: 0,
+                nb_number_gcts_timeline: {},
+                nb_previous_names: [],
+                nb_shortname_manual: false
+            };
+
+            for (k = 0; k < SCOPE_KEYS.length; k++) {
+                key = SCOPE_KEYS[k];
+                NBs[id]["nb_scope_" + key] = false;
+                NBs[id]["nb_status_" + key] = "";
+            }
+
+            selectedId = id;
+
+            saveData();
+            renderTable();
+            loadSelectedToForm(id);
+            setSidebarEnabled(true);
+
+            log("Added new NB: " + id, "ok");
+        }
+
+        function deleteSelected() {
+            if (!selectedId || !NBs[selectedId]) {
+                alert("No NB selected.");
+                return;
+            }
+
+            if (!confirm("Delete NB " + selectedId + " (" + NBs[selectedId].nb_shortname + ")?")) {
+                return;
+            }
+
+            delete NBs[selectedId];
+            delete updatedThisSession[selectedId];
+
+            log("Deleted NB: " + selectedId, "warn");
+
+            selectedId = "";
+
+            saveData();
+            renderTable();
+
+            clearForm();
+            setSidebarEnabled(false);
+        }
+
+        function setSort(k) {
+            if (sortKey === k) {
+                sortAsc = !sortAsc;
+            } else {
+                sortKey = k;
+                sortAsc = true;
+            }
+
+            renderTable();
+        }
+
+        function applySettings() {
+            var s = parseInt(document.getElementById("cfgStep").value, 10);
+            var t = parseInt(document.getElementById("cfgThreshold").value, 10);
+
+            if (isNaN(s) || s < 100 || s > 1000000) {
+                alert("Big Step must be between 100 and 1,000,000.");
+                return;
+            }
+
+            if (isNaN(t) || t < 0 || t > 10000) {
+                alert("Threshold must be between 0 and 10,000.");
+                return;
+            }
+
+            config.step = s;
+            config.threshold = t;
+            config.verbose = document.getElementById("cfgVerbose").checked;
+
+            saveConfig();
+            updateStatus("Settings applied");
+        }
+
+        function exportCSV() {
+            try {
+                var path = appFolder + "\\GSO_Data_" + getDateStamp() + ".csv";
+                var csv = "ID,ShortName,FullName,Country,Toys,StatusToys,LV,StatusLV,WER,StatusWER,MS-SC,StatusSC,MS-GA,StatusGA,MS-LV,StatusMSLV,OverallStatus,GCTS_Max\r\n";
+                var k, n, agg, row, i, c;
+
+                for (k in NBs) {
+                    if (NBs.hasOwnProperty(k)) {
+                        n = NBs[k];
+                        agg = deriveAggregateStatus(n);
+                        row = [
+                            k,
+                            n.nb_shortname,
+                            n.nb_fullname,
+                            n.nb_country
+                        ];
+
+                        for (i = 0; i < SCOPE_KEYS.length; i++) {
+                            row.push(n["nb_scope_" + SCOPE_KEYS[i]] ? "true" : "false");
+                            row.push(n["nb_status_" + SCOPE_KEYS[i]] || "");
+                        }
+
+                        row.push(agg ? STATUS_LABELS[agg] : "");
+                        row.push(String(n.nb_number_gcts));
+
+                        for (c = 0; c < row.length; c++) {
+                            row[c] = csvCell(row[c]);
+                        }
+
+                        csv += row.join(",") + "\r\n";
+                    }
+                }
+
+                writeTextFile(path, csv);
+
+                log("CSV exported: " + path, "ok");
+                alert("CSV exported:\n" + path);
+            } catch (e) {
+                log("CSV export failed: " + e.message, "err");
+                alert("CSV export failed: " + e.message);
+            }
+        }
+
+        function csvCell(s) {
+            s = String(s);
+            s = s.replace(/"/g, "\"\"");
+
+            return "\"" + s + "\"";
+        }
+
+        function getDateStamp() {
+            var d = new Date();
+
+            return d.getFullYear() + "-" +
+                pad(d.getMonth() + 1) + "-" +
+                pad(d.getDate());
+        }
+
+        function reloadAll() {
+            if (isScanning || isSyncing) {
+                alert("Stop scan/sync first.");
+                return;
+            }
+
+            loadConfig();
+            loadData();
+            maybeRunDataCleanup();
+            renderTable();
+
+            updatedThisSession = {};
+
+            updateStatus("Reloaded from disk");
+        }
+
+        function setBusyUI(scanning, syncing) {
+            document.getElementById("btnStart").disabled = scanning;
+            document.getElementById("btnStop").disabled = !scanning;
+            document.getElementById("btnSync").disabled = syncing || scanning;
+        }
+
+        function httpGet(url) {
+            var xhr = null;
+
+            try {
+                xhr = new ActiveXObject("MSXML2.ServerXMLHTTP.6.0");
+                xhr.setTimeouts(5000, 5000, 10000, 30000);
+            } catch (e1) {
+                xhr = new ActiveXObject("MSXML2.XMLHTTP");
+            }
+
+            xhr.open("GET", url, false);
+            xhr.setRequestHeader("Cache-Control", "no-cache, max-age=0");
+            xhr.setRequestHeader("Pragma", "no-cache");
+            xhr.send();
+
+            return {
+                status: xhr.status,
+                text: xhr.responseText
+            };
+        }
+
+        function checkUrl(nb, val) {
+            var url = "https://www.gso.org.sa/nb/coc/" + nb + "-" + val;
+            var res = httpGet(url);
+
+            if (res.status !== 200) {
+                throw new Error("HTTP " + res.status);
+            }
+
+            var text = res.text || "";
+            var exists = (text.indexOf("Invalid GCTS No") === -1);
+
+            if (config.verbose) {
+                log(
+                    nb + "-" + val + ": " +
+                    (exists ? "FOUND" : "NOT FOUND") +
+                    " [HTTP " + res.status + "]",
+                    exists ? "ok" : "info"
+                );
+            }
+
+            return {
+                exists: exists,
+                html: text,
+                url: url,
+                status: res.status
+            };
+        }
+
+        function addTimelineEntry(nb, dateKey, gctsValue) {
+            if (!nb) {
+                return;
+            }
+
+            if (!nb.nb_number_gcts_timeline) {
+                nb.nb_number_gcts_timeline = {};
+            }
+
+            gctsValue = parseInt(gctsValue, 10);
+
+            if (isNaN(gctsValue) || gctsValue < 0) {
+                gctsValue = 0;
+            }
+
+            nb.nb_number_gcts_timeline[dateKey] = gctsValue;
+        }
+
+        function updateNbGctsWithTimeline(nb, gctsValue) {
+            gctsValue = parseInt(gctsValue, 10);
+
+            if (isNaN(gctsValue) || gctsValue < 0) {
+                gctsValue = 0;
+            }
+
+            nb.nb_number_gcts = gctsValue;
+            addTimelineEntry(nb, getDateStamp(), gctsValue);
+        }
+
+        function startFullScan() {
+            var ids = [];
+            var skipped = [];
+            var k, nb;
+
+            if (isScanning || isSyncing) {
+                return;
+            }
+
+            for (k in NBs) {
+                if (NBs.hasOwnProperty(k)) {
+                    nb = NBs[k];
+
+                    if (hasActiveScope(nb)) {
+                        ids.push(k);
+                    } else {
+                        skipped.push(k);
+                    }
+                }
+            }
+
+            if (ids.length === 0) {
+                alert("No NB with an active (notified) scope to scan.");
+                return;
+            }
+
+            if (skipped.length > 0) {
+                log("Skipping " + skipped.length + " NB(s) without active (notified) scopes: " + skipped.join(", "), "warn");
+            }
+
+            ids.sort();
+            updatedThisSession = {};
+
+            isScanning = true;
+            shouldStop = false;
+            scanIds = ids;
+            scanIndex = 0;
+            currentScan = null;
+
+            setBusyUI(true, false);
+
+            log("Scan started for " + ids.length + " NB(s).", "ok");
+            updateStatus("Scanning...");
+
+            setTimeout(scanTick, 10);
+        }
+
+        function stopScan() {
+            if (!isScanning) {
+                return;
+            }
+
+            shouldStop = true;
+            log("Stop requested.", "warn");
+        }
+
+        function scanTick() {
+            if (!isScanning) {
+                return;
+            }
+
+            if (shouldStop) {
+                finishScan("Stopped by user");
+                return;
+            }
+
+            if (currentScan === null) {
+                while (scanIndex < scanIds.length && !NBs[scanIds[scanIndex]]) {
+                    scanIndex++;
+                }
+
+                if (scanIndex >= scanIds.length) {
+                    finishScan("Scan finished");
+                    return;
+                }
+
+                var sid = scanIds[scanIndex];
+                var snb = NBs[sid];
+                var sStart = parseInt(snb.nb_number_gcts, 10) || 0;
+                var sStep = parseInt(config.step, 10) || 2000;
+
+                currentScan = {
+                    id: sid,
+                    min: sStart,
+                    max: sStart + sStep,
+                    startMin: sStart,
+                    startCeil: sStart + sStep,
+                    extensions: 0,
+                    probedTop: false,
+                    retries: 0
+                };
+
+                log(
+                    "Scanning NB " + sid +
+                    " from " + currentScan.min +
+                    " to " + currentScan.max,
+                    "info"
+                );
+            }
+
+            var s = currentScan;
+            var nb = NBs[s.id];
+
+            if (!nb) {
+                log("NB " + s.id + " removed during scan. Skipping.", "warn");
+                currentScan = null;
+                scanIndex++;
+                setTimeout(scanTick, 10);
+                return;
+            }
+
+            if ((s.max - s.min) <= parseInt(config.threshold, 10)) {
+                if (s.min > s.startMin && !s.probedTop && s.extensions < 10) {
+                    s.probedTop = true;
+
+                    try {
+                        var probe = checkUrl(s.id, s.min + 1);
+
+                        if (probe.exists) {
+                            s.extensions++;
+                            s.min = s.min + 1;
+                            s.startCeil = s.min;
+                            s.max = s.min + (parseInt(config.step, 10) || 2000);
+                            s.probedTop = false;
+
+                            log(
+                                "Upper boundary reached for " + s.id +
+                                " - extending scan to " + s.max,
+                                "warn"
+                            );
+                        }
+                    } catch (pe) {
+                        log("Boundary probe failed for " + s.id + "-" + (s.min + 1) + ": " + pe.message, "warn");
+                    }
+
+                    setTimeout(scanTick, 10);
+                    return;
+                }
+
+                if (nb.nb_number_gcts !== s.min) {
+                    updateNbGctsWithTimeline(nb, s.min);
+
+                    updatedThisSession[s.id] = true;
+
+                    log(
+                        "Updated " + s.id +
+                        " => " + s.min +
+                        " and added timeline entry for " + getDateStamp(),
+                        "ok"
+                    );
+
+                    saveData();
+                } else {
+                    log("No change for " + s.id + " (" + s.min + ")", "info");
+                }
+
+                renderTable();
+
+                if (selectedId === s.id) {
+                    loadSelectedToForm(s.id);
+                }
+
+                currentScan = null;
+                scanIndex++;
+
+                setTimeout(scanTick, 10);
+
+                return;
+            }
+
+            var mid = s.min + Math.floor((s.max - s.min) / 2);
+            var res;
+
+            try {
+                res = checkUrl(s.id, mid);
+
+                if (res.exists) {
+                    s.min = mid;
+                } else {
+                    s.max = mid;
+                }
+
+                s.retries = 0;
+            } catch (e) {
+                s.retries++;
+
+                if (s.retries < 3) {
+                    log("HTTP error for " + s.id + "-" + mid + ", retry " + s.retries + "/3: " + e.message, "warn");
+
+                    setTimeout(scanTick, 2000 * s.retries);
+                    return;
+                }
+
+                log("HTTP error for " + s.id + "-" + mid + " after 3 retries - skipping NB: " + e.message, "err");
+
+                currentScan = null;
+                scanIndex++;
+
+                setTimeout(scanTick, 10);
+
+                return;
+            }
+
+            updateStatus(
+                "Scanning " + s.id +
+                " | range " + s.min +
+                "..." + s.max +
+                " | item " + (scanIndex + 1) +
+                "/" + scanIds.length
+            );
+
+            setTimeout(scanTick, 10);
+        }
+
+        function finishScan(msg) {
+            isScanning = false;
+            shouldStop = false;
+            currentScan = null;
+
+            setBusyUI(false, isSyncing);
+
+            updateStatus(msg);
+            log(msg, "ok");
+
+            saveData();
+        }
+
+        function decodeEntities(s) {
+            s = String(s);
+
+            s = s.replace(/&nbsp;/gi, " ");
+            s = s.replace(/&amp;/gi, "&");
+            s = s.replace(/&quot;/gi, "\"");
+            s = s.replace(/&#0?39;|&apos;|&rsquo;|&lsquo;/gi, "'");
+            s = s.replace(/&lt;/gi, "<");
+            s = s.replace(/&gt;/gi, ">");
+            s = s.replace(/&mdash;/gi, "\u2014");
+            s = s.replace(/&ndash;/gi, "\u2013");
+
+            return s;
+        }
+
+        function htmlToLines(html) {
+            var t = String(html);
+
+            t = t.replace(/<script[\s\S]*?<\/script>/gi, " ");
+            t = t.replace(/<style[\s\S]*?<\/style>/gi, " ");
+            t = t.replace(/<[^>]*>/g, "\n");
+            t = decodeEntities(t);
+
+            var rawLines = t.split(/\r?\n/);
+            var lines = [];
+            var i, ln;
+
+            for (i = 0; i < rawLines.length; i++) {
+                ln = squash(rawLines[i]);
+
+                if (ln) {
+                    lines.push(ln);
+                }
+            }
+
+            return lines;
+        }
+
+        function statusFromText(text) {
+            var up = squash(String(text || "")).toUpperCase();
+
+            if (STATUS_WORDS.hasOwnProperty(up)) {
+                return STATUS_WORDS[up];
+            }
+
+            return "";
+        }
+
+        function scopeFromCardLine(line) {
+            var up = String(line || "").toUpperCase();
+            var i, lbl, rest;
+
+            for (i = 0; i < REG_SCOPE_MAP.length; i++) {
+                lbl = REG_SCOPE_MAP[i].label.toUpperCase();
+
+                if (up === lbl) {
+                    return { key: REG_SCOPE_MAP[i].key, status: "" };
+                }
+
+                if (up.indexOf(lbl) === 0) {
+                    rest = trim(up.substring(lbl.length)).replace(/^[-\u2010\u2012\u2013\u2014:\s]+/, "");
+
+                    if (rest !== "") {
+                        return { key: REG_SCOPE_MAP[i].key, status: statusFromText(rest) || "unknown:" + rest.toLowerCase() };
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        function parseRegisterPage(html, target) {
+            var lines = htmlToLines(html);
+            var out = {
+                found: 0,
+                pages: 0,
+                entries: []
+            };
+
+            var foundRe = /Found\s+(\d+)\s+Results/i;
+            var pagesRe = /for\s+(\d+)\s+Pages/i;
+            var nameNbRe = /[-\u2013\u2014]\s*NB[\u2010\u2011-]\s?(\d{4,6})\s*$/;
+            var nbOnlyRe = /^NB[\u2010\u2011-]\s?(\d{4,6})$/;
+
+            var marks = [];
+            var i, m;
+
+            for (i = 0; i < lines.length; i++) {
+                m = foundRe.exec(lines[i]);
+
+                if (m) {
+                    out.found = parseInt(m[1], 10) || 0;
+                }
+
+                m = pagesRe.exec(lines[i]);
+
+                if (m) {
+                    out.pages = parseInt(m[1], 10) || 0;
+                }
+
+                if (nameNbRe.test(lines[i]) || nbOnlyRe.test(lines[i])) {
+                    marks.push(i);
+                }
+            }
+
+            for (i = 0; i < marks.length; i++) {
+                var idx = marks[i];
+                var id = "";
+                var fullname = "";
+                var cardEnd = (i + 1 < marks.length) ? marks[i + 1] : lines.length;
+
+                m = nameNbRe.exec(lines[idx]);
+
+                if (m) {
+                    id = m[1];
+                    fullname = trim(lines[idx].substring(0, m.index)).replace(/^\d+[\.\)]\s+/, "");
+                } else {
+                    m = nbOnlyRe.exec(lines[idx]);
+
+                    if (m) {
+                        id = m[1];
+
+                        if (idx > 0 && (i === 0 || idx - 1 > marks[i - 1])) {
+                            fullname = lines[idx - 1];
+                        }
+                    }
+                }
+
+                if (!id) {
+                    continue;
+                }
+
+                var entry = {
+                    id: id,
+                    fullname: fullname,
+                    country: "",
+                    scopes: {},
+                    assumedStatus: false
+                };
+
+                var k;
+
+                for (k = 0; k < SCOPE_KEYS.length; k++) {
+                    entry.scopes[SCOPE_KEYS[k]] = { active: false, status: "" };
+                }
+
+                var j, line, sc, cardStatus = "";
+
+                for (j = idx + 1; j < cardEnd; j++) {
+                    line = lines[j];
+
+                    if (!entry.country && COUNTRY_FULL_TO_ISO.hasOwnProperty(line.toUpperCase())) {
+                        entry.country = COUNTRY_FULL_TO_ISO[line.toUpperCase()];
+                        continue;
+                    }
+
+                    if (cardStatus === "") {
+                        cardStatus = statusFromText(line.replace(/^Status[\s:]*/i, ""));
+                    }
+
+                    sc = scopeFromCardLine(line);
+
+                    if (sc && !entry.scopes[sc.key].active) {
+                        entry.scopes[sc.key].active = true;
+                        entry.scopes[sc.key].status = sc.status;
+                    }
+                }
+
+                for (k = 0; k < SCOPE_KEYS.length; k++) {
+                    if (entry.scopes[SCOPE_KEYS[k]].active && !entry.scopes[SCOPE_KEYS[k]].status) {
+                        entry.scopes[SCOPE_KEYS[k]].status = cardStatus;
+                    }
+                }
+
+                if (!cardStatus) {
+                    var hasInline = false;
+
+                    for (k = 0; k < SCOPE_KEYS.length; k++) {
+                        if (entry.scopes[SCOPE_KEYS[k]].status) {
+                            hasInline = true;
+                        }
+                    }
+
+                    if (!hasInline) {
+                        entry.assumedStatus = true;
+
+                        for (k = 0; k < SCOPE_KEYS.length; k++) {
+                            if (entry.scopes[SCOPE_KEYS[k]].active) {
+                                entry.scopes[SCOPE_KEYS[k]].status = "notified";
+                            }
+                        }
+                    }
+                }
+
+                if (config.verbose && entry.assumedStatus && i === 0) {
+                    log("Register: no card-level status found in HTML - assuming 'notified'. Use 'Dump List HTML' to calibrate.", "warn");
+                }
+
+                out.entries.push(entry);
+            }
+
+            if (target) {
+                var n, e;
+
+                for (n = 0; n < out.entries.length; n++) {
+                    e = out.entries[n];
+
+                    if (target[e.id]) {
+                        syncStateDups++;
+                        log("Register anomaly: duplicate NB " + e.id + " ('" + e.fullname + "') - keeping first occurrence.", "warn");
+                    } else {
+                        target[e.id] = e;
+                    }
+                }
+            }
+
+            return out;
+        }
+
+        var syncStateDups = 0;
+
+        function resetSyncDups() {
+            syncStateDups = 0;
+        }
+
+        function startSync(manual) {
+            if (isSyncing || isScanning) {
+                if (manual) {
+                    alert("Scan in progress - stop it first.");
+                }
+
+                return;
+            }
+
+            isSyncing = true;
+            resetSyncDups();
+            setBusyUI(false, true);
+
+            syncState = {
+                manual: manual,
+                page: 1,
+                pagesTotal: 0,
+                found: 0,
+                reg: {},
+                retries: 0
+            };
+
+            log(manual ? "Register sync started (manual)." : "Startup register check started...", "info");
+            updateStatus("Register sync: fetching page 1...");
+
+            setTimeout(syncTick, 10);
+        }
+
+        function syncTick() {
+            if (!isSyncing || !syncState) {
+                return;
+            }
+
+            var url = REG_LIST_URL + "?orderBy=number&page=" + syncState.page;
+            var parsed;
+
+            try {
+                var res = httpGet(url);
+
+                if (res.status !== 200) {
+                    throw new Error("HTTP " + res.status);
+                }
+
+                parsed = parseRegisterPage(res.text || "", syncState.reg);
+
+                if (parsed.pages > 0) {
+                    syncState.pagesTotal = parsed.pages;
+                }
+
+                if (parsed.found > 0) {
+                    syncState.found = parsed.found;
+                }
+
+                syncState.retries = 0;
+            } catch (err) {
+                syncState.retries++;
+
+                if (syncState.retries < 3) {
+                    log("Register fetch failed (page " + syncState.page + "), retry " + syncState.retries + "/3: " + err.message, "warn");
+
+                    setTimeout(syncTick, 2000 * syncState.retries);
+                    return;
+                }
+
+                log("Register check aborted (page " + syncState.page + "): " + err.message, "err");
+                finishSync("Register sync failed");
+                return;
+            }
+
+            updateStatus("Register sync: page " + syncState.page + "/" + (syncState.pagesTotal || "?") + " | " + countKeys(syncState.reg) + " NB(s)");
+
+            if (syncState.pagesTotal > 0 && syncState.page < syncState.pagesTotal) {
+                syncState.page++;
+                setTimeout(syncTick, 300);
+                return;
+            }
+
+            applySync();
+        }
+
+        function normName(s) {
+            return squash(String(s || "")).toUpperCase().replace(/&/g, "AND").replace(/[^A-Z0-9]+/g, " ").replace(/\s+/g, " ").replace(/^ | $/g, "");
+        }
+
+        function cityFromName(fullname) {
+            var up = String(fullname || "").toUpperCase();
+            var k;
+
+            for (k in CITY_ABBREV) {
+                if (CITY_ABBREV.hasOwnProperty(k) && up.indexOf(k) >= 0) {
+                    return CITY_ABBREV[k];
+                }
+            }
+
+            return "";
+        }
+
+        function generateShortname(fullname, countryIso, id) {
+            var token = "";
+            var m = String(fullname || "").match(/\(([A-Za-z0-9&\-\.]{2,12})\)/);
+
+            if (m) {
+                token = m[1];
+            }
+
+            if (!token) {
+                var up = String(fullname || "").toUpperCase();
+                var i;
+
+                for (i = 0; i < groupKeysSorted.length; i++) {
+                    if (up.indexOf(groupKeysSorted[i]) === 0) {
+                        token = GROUP_DICT[groupKeysSorted[i]];
+                        break;
+                    }
+                }
+            }
+
+            if (!token) {
+                token = squash(String(fullname || "").split(/[\s(\/,\-]/)[0]).replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+
+                if (token.length > 10) {
+                    token = token.substring(0, 10);
+                }
+
+                if (token === "") {
+                    token = "NB";
+                }
+            }
+
+            var suffix = countryIso || "XX";
+
+            if (shortnameExists(token + "-" + suffix, "")) {
+                var city = cityFromName(fullname);
+
+                if (city && !shortnameExists(token + "-" + city, "")) {
+                    suffix = city;
+                } else {
+                    suffix = String(parseInt(id, 10) || id);
+                }
+            }
+
+            return token + "-" + suffix;
+        }
+
+        function buildNBFromRegister(r) {
+            var nb = {
+                nb_shortname: generateShortname(r.fullname, r.country, r.id),
+                nb_fullname: r.fullname,
+                nb_country: r.country,
+                nb_number_gcts: 0,
+                nb_number_gcts_timeline: {},
+                nb_previous_names: [],
+                nb_shortname_manual: false
+            };
+
+            var k, key;
+
+            for (k = 0; k < SCOPE_KEYS.length; k++) {
+                key = SCOPE_KEYS[k];
+                nb["nb_scope_" + key] = !!r.scopes[key].active;
+                nb["nb_status_" + key] = r.scopes[key].active ? (r.scopes[key].status || "notified") : "";
+            }
+
+            return nb;
+        }
+
+        function scopeListText(r) {
+            var parts = [];
+            var k;
+
+            for (k = 0; k < SCOPE_KEYS.length; k++) {
+                if (r.scopes[SCOPE_KEYS[k]].active) {
+                    parts.push(SCOPE_LABELS[SCOPE_KEYS[k]]);
+                }
+            }
+
+            return parts.length ? parts.join("+") : "none";
+        }
+
+        function applySync() {
+            if (!syncState) {
+                finishSync("Register sync finished");
+                return;
+            }
+
+            var reg = syncState.reg;
+            var collected = countKeys(reg);
+
+            if (syncState.found > 0 && collected < syncState.found) {
+                log(
+                    "Warning: collected " + collected + " of " + syncState.found +
+                    " NB(s) from register - results may be incomplete (page shifted between requests).",
+                    "warn"
+                );
+            }
+
+            if (syncStateDups > 0) {
+                log("Register anomalies: " + syncStateDups + " duplicate NB number(s) skipped.", "warn");
+            }
+
+            var newOnes = [];
+            var scopeChanges = [];
+            var nameChanges = [];
+            var missing = [];
+            var id, r, nb, k, i, key;
+
+            for (id in reg) {
+                if (!reg.hasOwnProperty(id)) {
+                    continue;
+                }
+
+                r = reg[id];
+                nb = NBs[id];
+
+                if (!nb) {
+                    newOnes.push(r);
+                    continue;
+                }
+
+                var changes = [];
+
+                for (k = 0; k < SCOPE_KEYS.length; k++) {
+                    key = SCOPE_KEYS[k];
+                    var active = !!r.scopes[key].active;
+                    var st = active ? (r.scopes[key].status || "notified") : "";
+
+                    if (nb["nb_scope_" + key] !== active) {
+                        changes.push({ key: key, type: "scope", from: nb["nb_scope_" + key], to: active, status: st });
+                    } else if (active && nb["nb_status_" + key] !== st) {
+                        changes.push({ key: key, type: "status", from: nb["nb_status_" + key], to: st });
+                    }
+                }
+
+                if (changes.length > 0) {
+                    scopeChanges.push({ r: r, changes: changes });
+                }
+
+                if (normName(nb.nb_fullname) !== normName(r.fullname) && !isCorruptName(nb.nb_fullname)) {
+                    nameChanges.push({ r: r });
+                }
+            }
+
+            for (id in NBs) {
+                if (NBs.hasOwnProperty(id) && !reg[id]) {
+                    missing.push(id);
+                }
+            }
+
+            newOnes.sort(function(a, b) {
+                return a.id < b.id ? -1 : (a.id > b.id ? 1 : 0);
+            });
+            nameChanges.sort(function(a, b) {
+                return a.r.id < b.r.id ? -1 : 1;
+            });
+            missing.sort();
+
+            log(
+                "Register diff: " + newOnes.length + " new | " +
+                scopeChanges.length + " record(s) with scope/status change(s) | " +
+                nameChanges.length + " name change(s) | " +
+                missing.length + " not in register",
+                "info"
+            );
+
+            var appliedScopeChanges = 0;
+            var appliedNew = 0;
+            var appliedNames = 0;
+
+            for (i = 0; i < scopeChanges.length; i++) {
+                var scRec = scopeChanges[i];
+                var target = NBs[scRec.r.id];
+                var j;
+
+                for (j = 0; j < scRec.changes.length; j++) {
+                    var ch = scRec.changes[j];
+
+                    target["nb_scope_" + ch.key] = ch.to;
+                    target["nb_status_" + ch.key] = ch.to ? ch.status : "";
+                    appliedScopeChanges++;
+
+                    log(
+                        "Auto-update " + scRec.r.id + " (" + target.nb_shortname + "): " +
+                        SCOPE_LABELS[ch.key] + " " + ch.type + " " +
+                        (ch.type === "scope"
+                            ? (ch.to ? "added (" + ch.status + ")" : "removed")
+                            : ch.from + " -> " + ch.to),
+                        "ok"
+                    );
+                }
+
+                updatedThisSession[scRec.r.id] = true;
+            }
+
+            if (countKeys(NBs) === 0 && newOnes.length > 0) {
+                if (confirm(
+                    "No NB data loaded (empty or missing/broken data.json).\n\n" +
+                    "The GSO register lists " + newOnes.length + " NB(s).\n\n" +
+                    "Pull the complete listing and build the local database from scratch?"
+                )) {
+                    for (i = 0; i < newOnes.length; i++) {
+                        NBs[newOnes[i].id] = buildNBFromRegister(newOnes[i]);
+                        updatedThisSession[newOnes[i].id] = true;
+                        appliedNew++;
+
+                        log(
+                            "Built NB " + newOnes[i].id + " '" + newOnes[i].fullname +
+                            "' (" + newOnes[i].country + ") scopes: " + scopeListText(newOnes[i]),
+                            "ok"
+                        );
+                    }
+                } else {
+                    log("Full rebuild declined.", "warn");
+                }
+            } else if (newOnes.length > 0) {
+                for (i = 0; i < newOnes.length; i++) {
+                    r = newOnes[i];
+                    var proposed = generateShortname(r.fullname, r.country, r.id);
+
+                    if (confirm(
+                        "New NB found in register - add it?\n\n" +
+                        "NB " + r.id + ": " + r.fullname + "\n" +
+                        "Country: " + r.country + "\n" +
+                        "Scopes: " + scopeListText(r) + "\n" +
+                        "Proposed shortname: " + proposed + "\n\n" +
+                        "(You can adjust the shortname in the editor afterwards; " +
+                        "manual edits are never overwritten by sync.)"
+                    )) {
+                        NBs[r.id] = buildNBFromRegister(r);
+                        updatedThisSession[r.id] = true;
+                        appliedNew++;
+
+                        log(
+                            "Added NB " + r.id + " '" + r.fullname +
+                            "' (" + r.country + ") scopes: " + scopeListText(r),
+                            "ok"
+                        );
+                    } else {
+                        log("Skipped new NB " + r.id + " '" + r.fullname + "' (declined).", "warn");
+                    }
+                }
+            }
+
+            for (i = 0; i < nameChanges.length; i++) {
+                var nc = nameChanges[i];
+                var localNb = NBs[nc.r.id];
+                var corrupt = isCorruptName(localNb.nb_fullname);
+
+                if (corrupt || confirm(
+                    "Name change detected for NB " + nc.r.id + ":\n\n" +
+                    "Old: " + localNb.nb_fullname + "\n" +
+                    "New: " + nc.r.fullname + "\n\n" +
+                    "Accept the new name? (the previous name will be stored)"
+                )) {
+                    var oldName = localNb.nb_fullname;
+
+                    localNb.nb_previous_names.push({
+                        name: oldName,
+                        changed: getDateStamp()
+                    });
+
+                    localNb.nb_fullname = nc.r.fullname;
+                    appliedNames++;
+
+                    log(
+                        "Name updated " + nc.r.id + ": '" + oldName + "' -> '" + nc.r.fullname + "'" +
+                        (corrupt ? " (auto-repaired corrupted name)" : ""),
+                        "ok"
+                    );
+                } else {
+                    log("Kept local name for NB " + nc.r.id + " (declined).", "warn");
+                }
+            }
+
+            for (i = 0; i < missing.length; i++) {
+                var missingNb = NBs[missing[i]];
+
+                log(
+                    "Not in register (check manually, nothing changed): " + missing[i] +
+                    " (" + missingNb.nb_shortname + ")",
+                    "warn"
+                );
+            }
+
+            var totalChanges = appliedNew + appliedScopeChanges + appliedNames;
+
+            if (totalChanges > 0) {
+                backupDatedDataFile();
+                saveData();
+            }
+
+            renderTable();
+
+            if (selectedId && NBs[selectedId]) {
+                loadSelectedToForm(selectedId);
+            }
+
+            finishSync(
+                "Register sync finished: +" + appliedNew + " new, " +
+                appliedScopeChanges + " scope/status update(s), " +
+                appliedNames + " name update(s)"
+            );
+        }
+
+        function finishSync(msg) {
+            isSyncing = false;
+            syncState = null;
+
+            setBusyUI(isScanning, false);
+
+            updateStatus(msg);
+            log(msg, msg.indexOf("failed") >= 0 ? "err" : "ok");
+        }
+
+        function dumpListHtml() {
+            if (isScanning || isSyncing) {
+                alert("Wait for the current scan or sync to finish first.");
+
+                return;
+            }
+
+            var url = REG_LIST_URL + "?orderBy=number&page=1";
+            var html = "";
+
+            updateStatus("Fetching register page 1 for dump...");
+
+            try {
+                html = httpGet(url).text || "";
+            } catch (e) {
+                setText("diagStatus", "Fetch failed: " + e.message);
+                log("Dump List HTML failed: " + e.message, "err");
+                updateStatus("Dump failed");
+                return;
+            }
+
+            try {
+                writeTextFile(appFolder + "\\register_dump.html", html);
+            } catch (e2) {
+                log("Could not write register_dump.html: " + e2.message, "err");
+            }
+
+            var probe = { found: 0, pages: 0, entries: [] };
+
+            try {
+                probe = parseRegisterPage(html, null);
+            } catch (e3) {
+                probe = { found: 0, pages: 0, entries: [] };
+            }
+
+            setText("diagUrl", url);
+            setText("diagStatus", html.length + " chars saved to register_dump.html");
+            setText(
+                "diagResult",
+                "Parser result: " + probe.entries.length + " NB(s) found, " +
+                (probe.found > 0 ? probe.found : "?") + " expected, " +
+                probe.pages + " page(s) detected"
+            );
+            setText("diagHtml", html.substring(0, 8000));
+
+            log(
+                "Dump List HTML: parsed " + probe.entries.length + " of " +
+                (probe.found > 0 ? probe.found : "?") + " expected NB(s).",
+                "ok"
+            );
+            updateStatus("Dump List HTML complete");
+
+            if (probe.found > 0 && probe.entries.length < probe.found && !config.verbose) {
+                log("Parser may need calibration. Enable Verbose log and dump again for details.", "warn");
+            }
+        }
+
+        function toggleDiagnostics() {
+            var pane = document.getElementById("editPane");
+            var diag = document.getElementById("diagPanel");
+
+            if (pane && diag && diag.offsetTop != null) {
+                pane.scrollTop = diag.offsetTop - 20;
+            }
+        }
+
+        function runDiagnostic() {
+            var nb = trim(document.getElementById("diagNb").value);
+            var val = parseInt(document.getElementById("diagVal").value, 10) || 0;
+            var res;
+
+            if (nb === "") {
+                alert("Enter an NB ID first.");
+                return;
+            }
+
+            try {
+                res = checkUrl(nb, val);
+
+                setText("diagUrl", res.url);
+                setText("diagStatus", "HTTP Status: " + res.status);
+                setText("diagResult", res.exists ? "EXISTS" : "NOT FOUND");
+                setText("diagHtml", (res.html || "").substring(0, 8000));
+
+                log("Diagnostic completed for " + nb + "-" + val, "ok");
+            } catch (e) {
+                setText("diagResult", "ERROR: " + e.message);
+                setText("diagStatus", "");
+                setText("diagHtml", "");
+
+                log("Diagnostic failed: " + e.message, "err");
+            }
+        }
+
+        function updateLayout() {
+            try {
+                var mainList = document.getElementById("mainListContainer");
+                var tableContainer = document.getElementById("tableContainer");
+                var logSection = document.getElementById("logSection");
+                var logBody = document.getElementById("logBody");
+                var editPane = document.getElementById("editPane");
+
+                if (!tableContainer || !logSection || !mainList) {
+                    return;
+                }
+
+                var vh = document.documentElement.clientHeight || document.body.clientHeight || 800;
+                var rectMain = mainList.getBoundingClientRect ? mainList.getBoundingClientRect() : null;
+                var mainTop = rectMain ? rectMain.top : mainList.offsetTop;
+
+                var availableHeight = vh - mainTop - 20;
+
+                if (availableHeight < 420) {
+                    availableHeight = 420;
+                }
+
+                mainList.style.height = availableHeight + "px";
+                mainList.style.minHeight = "420px";
+
+                var logVisible = true;
+
+                if (logBody) {
+                    var cls = logBody.className || "";
+
+                    if (cls.indexOf("hidden") >= 0) {
+                        logVisible = false;
+                    }
+                }
+
+                if (logVisible) {
+                    logSection.style.display = "block";
+                    logSection.style.height = "220px";
+                    tableContainer.style.bottom = "230px";
+                } else {
+                    logSection.style.height = "38px";
+                    tableContainer.style.bottom = "48px";
+                }
+
+                var max20RowsHeight = 36 + (20 * 30);
+
+                if (tableContainer.clientHeight > max20RowsHeight) {
+                    tableContainer.style.height = max20RowsHeight + "px";
+                } else {
+                    tableContainer.style.height = "";
+                }
+
+                if (editPane) {
+                    var rectPane = editPane.getBoundingClientRect ? editPane.getBoundingClientRect() : null;
+                    var paneTop = rectPane ? rectPane.top : editPane.offsetTop;
+                    var paneHeight = vh - paneTop - 10;
+
+                    if (paneHeight < 200) {
+                        paneHeight = 200;
+                    }
+
+                    editPane.style.height = paneHeight + "px";
+                    editPane.style.overflowY = "auto";
+                }
+            } catch (e) {
+            }
+        }
+
+        function toggleLog() {
+            var body = document.getElementById("logBody");
+            var link = document.getElementById("logToggleLink");
+
+            if (!body) {
+                return;
+            }
+
+            var cls = body.className || "";
+
+            if (cls.indexOf("hidden") >= 0) {
+                body.className = cls.replace("hidden", "").replace(/\s+/g, " ");
+
+                if (link) {
+                    link.innerText = "[Hide]";
+                }
+            } else {
+                body.className = (cls + " hidden").replace(/\s+/g, " ");
+
+                if (link) {
+                    link.innerText = "[Show]";
+                }
+            }
+
+            updateLayout();
+        }
+    </script>
+</head>
+
+<body onload="init()">
+
+    <div class="header">
+        <div class="title" id="appTitle">GSO Analyzer Pro</div>
+        <div class="subtitle" id="appSubtitle">Initializing...</div>
+    </div>
+
+    <div class="toolbar">
+        <button id="btnStart" onclick="startFullScan()">Start Scan</button>
+        <button id="btnStop" onclick="stopScan()" disabled>Stop Scan</button>
+        <button id="btnSync" onclick="startSync(true)">Sync Register</button>
+        <button onclick="addNewNB()">Add NB</button>
+        <button onclick="saveData()">Save Data</button>
+        <button onclick="reloadAll()">Reload</button>
+        <button onclick="exportCSV()">Export CSV</button>
+        <button onclick="toggleDiagnostics()">Diagnostics</button>
+        <button onclick="toggleLog()">Log</button>
+    </div>
+
+    <div class="section">
+        <div class="sectionHeader">
+            <span>NB List &amp; Editor</span>
+
+            <span class="searchArea">
+                Search:
+                <input type="text" id="searchInput" onkeyup="renderTable()">
+                <span id="recordCount" class="small"></span>
+            </span>
+        </div>
+
+        <div class="sectionBody mainLayout">
+
+            <div class="mainListContainer" id="mainListContainer">
+
+                <div class="tableContainer" id="tableContainer">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width:60px" onclick="setSort('id')">ID</th>
+                                <th style="width:120px" onclick="setSort('nb_shortname')">Short Name</th>
+                                <th onclick="setSort('nb_fullname')">Full Name</th>
+                                <th style="width:45px" onclick="setSort('nb_country')">Cty</th>
+                                <th style="width:175px">Scopes</th>
+                                <th style="width:95px" onclick="setSort('nb_status_agg')">Status</th>
+                                <th style="width:85px" onclick="setSort('nb_number_gcts')">GCTS Max</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody"></tbody>
+                    </table>
+                </div>
+
+                <div class="section" id="logSection">
+                    <div class="sectionHeader">
+                        System Log
+
+                        <span
+                            id="logToggleLink"
+                            style="float:right; cursor:pointer; margin-left:8px;"
+                            onclick="toggleLog()"
+                        >[Hide]</span>
+
+                        <span
+                            style="float:right; cursor:pointer;"
+                            onclick="clearLog()"
+                        >[Clear]</span>
+                    </div>
+
+                    <div class="sectionBody" id="logBody">
+                        <div id="logOutput" class="logBox"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="editPane" id="editPane">
+
+                <div class="sidebarSectionHeader">Selected Record</div>
+
+                <div
+                    id="selectedLabel"
+                    class="small"
+                    style="margin-bottom:6px;"
+                >Selected NB: none</div>
+
+                <div class="fieldRow">
+                    <span class="fieldLabel">ID</span>
+                    <span class="fieldInput">
+                        <input type="text" id="fldId" disabled>
+                    </span>
+                </div>
+
+                <div class="fieldRow">
+                    <span class="fieldLabel">Short Name</span>
+                    <span class="fieldInput">
+                        <input type="text" id="fldShort" disabled>
+                    </span>
+                </div>
+
+                <div class="fieldRow">
+                    <span class="fieldLabel">Full Name</span>
+                    <span class="fieldInput">
+                        <input type="text" id="fldFull" disabled>
+                    </span>
+                </div>
+
+                <div class="fieldRow">
+                    <span class="fieldLabel">Country (ISO)</span>
+                    <span class="fieldInput">
+                        <input type="text" id="fldCountry" disabled>
+                    </span>
+                </div>
+
+                <div class="fieldRow">
+                    <span class="fieldLabel">Scopes</span>
+
+                    <span class="fieldInput">
+                        <div class="scopeRow">
+                            <label><input type="checkbox" id="fldtoys" disabled> TOYS</label>
+                            <select id="sttoys" class="statusSelect" disabled>
+                                <option value="">-</option>
+                                <option value="notified">Notified</option>
+                                <option value="suspended">Suspended</option>
+                                <option value="withdrawn">Withdrawn</option>
+                                <option value="expired">Expired</option>
+                            </select>
+                        </div>
+                        <div class="scopeRow">
+                            <label><input type="checkbox" id="fldlv" disabled> LV</label>
+                            <select id="stlv" class="statusSelect" disabled>
+                                <option value="">-</option>
+                                <option value="notified">Notified</option>
+                                <option value="suspended">Suspended</option>
+                                <option value="withdrawn">Withdrawn</option>
+                                <option value="expired">Expired</option>
+                            </select>
+                        </div>
+                        <div class="scopeRow">
+                            <label><input type="checkbox" id="fldwer" disabled> WER</label>
+                            <select id="stwer" class="statusSelect" disabled>
+                                <option value="">-</option>
+                                <option value="notified">Notified</option>
+                                <option value="suspended">Suspended</option>
+                                <option value="withdrawn">Withdrawn</option>
+                                <option value="expired">Expired</option>
+                            </select>
+                        </div>
+                        <div class="scopeRow">
+                            <label><input type="checkbox" id="fldsc" disabled> MS-SC</label>
+                            <select id="stsc" class="statusSelect" disabled>
+                                <option value="">-</option>
+                                <option value="notified">Notified</option>
+                                <option value="suspended">Suspended</option>
+                                <option value="withdrawn">Withdrawn</option>
+                                <option value="expired">Expired</option>
+                            </select>
+                        </div>
+                        <div class="scopeRow">
+                            <label><input type="checkbox" id="fldga" disabled> MS-GA</label>
+                            <select id="stga" class="statusSelect" disabled>
+                                <option value="">-</option>
+                                <option value="notified">Notified</option>
+                                <option value="suspended">Suspended</option>
+                                <option value="withdrawn">Withdrawn</option>
+                                <option value="expired">Expired</option>
+                            </select>
+                        </div>
+                        <div class="scopeRow">
+                            <label><input type="checkbox" id="fldmslv" disabled> MS-LV</label>
+                            <select id="stmslv" class="statusSelect" disabled>
+                                <option value="">-</option>
+                                <option value="notified">Notified</option>
+                                <option value="suspended">Suspended</option>
+                                <option value="withdrawn">Withdrawn</option>
+                                <option value="expired">Expired</option>
+                            </select>
+                        </div>
+                    </span>
+                </div>
+
+                <div class="fieldRow">
+                    <span class="fieldLabel">GCTS Max</span>
+                    <span class="fieldInput">
+                        <input type="text" id="fldGcts" disabled>
+                    </span>
+                </div>
+
+                <div class="fieldRow">
+                    <span class="fieldLabel">&nbsp;</span>
+
+                    <span class="fieldInput">
+                        <button id="btnSave" onclick="saveSelected()" disabled>Save</button>
+                        <button id="btnDeleteSide" onclick="deleteSelected()" disabled>Delete</button>
+                        <button id="btnCancel" onclick="cancelEdit()" disabled>Cancel</button>
+                    </span>
+                </div>
+
+                <div id="prevNames" class="small" style="margin-bottom:6px;">No previous names recorded.</div>
+
+                <div class="sidebarDivider"></div>
+
+                <div class="sidebarSectionHeader">GCTS Timeline</div>
+
+                <div id="timelineInfo" class="small timelineInfo">
+                    No NB selected.
+                </div>
+
+                <div class="timelineContainer">
+                    <table class="timelineTable">
+                        <thead>
+                            <tr>
+                                <th style="width:110px">Date</th>
+                                <th style="width:75px">GCTS Max</th>
+                                <th>Difference</th>
+                            </tr>
+                        </thead>
+
+                        <tbody id="timelineBody">
+                            <tr>
+                                <td colspan="3" class="timelineEmpty">
+                                    No timeline data available.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="sidebarDivider"></div>
+
+<div class="sidebarSectionHeader">Settings</div>
+
+                <div class="fieldRow">
+                    <span class="fieldLabel">Big Step</span>
+                    <span class="fieldInput">
+                        <input type="text" id="cfgStep">
+                    </span>
+                </div>
+
+                <div class="fieldRow">
+                    <span class="fieldLabel">Threshold</span>
+                    <span class="fieldInput">
+                        <input type="text" id="cfgThreshold">
+                    </span>
+                </div>
+
+                <div class="fieldRow">
+                    <span class="fieldLabel">Verbose</span>
+
+                    <span class="fieldInput">
+                        <label>
+                            <input type="checkbox" id="cfgVerbose">
+                            Verbose log
+                        </label>
+                    </span>
+                </div>
+
+                <div class="fieldRow">
+                    <span class="fieldLabel">&nbsp;</span>
+
+                    <span class="fieldInput">
+                        <button onclick="applySettings()">Apply</button>
+                    </span>
+                </div>
+
+                <div class="small" style="margin-top:6px;">
+                    App folder:
+                    <span id="appPath"></span>
+                </div>
+
+                <div class="small" id="statusText">Initializing...</div>
+
+                <div class="sidebarDivider"></div>
+
+                <div class="sidebarSectionHeader">Diagnostics</div>
+
+                <div id="diagPanel">
+
+                    <div class="fieldRow">
+                        <span class="fieldLabel">NB ID</span>
+
+                        <span class="fieldInput">
+                            <input type="text" id="diagNb" value="0007">
+                        </span>
+                    </div>
+
+                    <div class="fieldRow">
+                        <span class="fieldLabel">GCTS</span>
+
+                        <span class="fieldInput">
+                            <input type="text" id="diagVal" value="3952">
+                        </span>
+                    </div>
+
+                    <div class="fieldRow">
+                        <span class="fieldLabel">&nbsp;</span>
+
+                        <span class="fieldInput">
+                            <button onclick="runDiagnostic()">Run Diagnostic</button>
+                            <button onclick="dumpListHtml()">Dump List HTML</button>
+                        </span>
+                    </div>
+
+                    <div class="fieldRow">
+                        <span class="fieldLabel">URL</span>
+                    </div>
+                    <div id="diagUrl" class="diagBox"></div>
+
+                    <div class="fieldRow">
+                        <span class="fieldLabel">Status</span>
+                    </div>
+                    <div id="diagStatus" class="diagBox"></div>
+
+                    <div class="fieldRow">
+                        <span class="fieldLabel">Result</span>
+                    </div>
+                    <div id="diagResult" class="diagBox"></div>
+
+                    <div class="fieldRow">
+                        <span class="fieldLabel">HTML</span>
+                    </div>
+                    <div id="diagHtml" class="diagBox"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

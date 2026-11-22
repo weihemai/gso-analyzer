@@ -8,6 +8,8 @@ and live register sync against gso.org.sa.
 
 - `GSO-Analyzer_V1.3.0.hta` - the complete V1.3.0 application (single-file HTA)
 - `CHANGELOG.md` - full V1.3.0 changelog
+- `source-parts/` - the 7 source chunks (`GSO-Analyzer_V1.3.0_part01of07.md` ... `part07of07.md`)
+- `README-assembly.md` - how to reassemble the HTA from the source parts
 - `LICENSE` - MIT
 
 ## Running

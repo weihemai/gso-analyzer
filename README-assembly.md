@@ -76,6 +76,13 @@ functionally identical in HTML/HTA — no impact on the app.
 
 - The scanner uses `MSXML2.ServerXMLHTTP.6.0` (with `XMLHTTP` fallback); run the
   HTA locally from disk, not from a network share with stricter security.
+- If register sync / diagnostics report timeouts on a network where the browser
+  reaches gso.org.sa fine, your machine most likely needs a proxy for WinHTTP:
+  run `netsh winhttp import proxy source=ie` as administrator, or add
+  `"proxy": "proxyserver:port"` to `config.json` and restart the app.
+  `MSXML2.ServerXMLHTTP` uses the machine-level WinHTTP proxy, not the per-user
+  Internet Explorer settings; the `MSXML2.XMLHTTP` retry picks up the user proxy
+  as a fallback.
 - **Diagnostics → Dump List HTML** writes `register_dump.html` to the app folder
   and shows how many NBs the parser recognized on page 1 (expect 9 of 10 with
   the duplicate NB-0008 skipped) — use it first if register sync ever returns

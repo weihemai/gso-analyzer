@@ -487,7 +487,8 @@
             step: 2000,
             threshold: 1,
             verbose: true,
-            cleanupDone: false
+            cleanupDone: false,
+            proxy: ""
         };
 
         var groupKeysSorted = [];
@@ -994,6 +995,10 @@
 
                     if (typeof obj.cleanupDone !== "undefined") {
                         config.cleanupDone = !!obj.cleanupDone;
+                    }
+
+                    if (typeof obj.proxy !== "undefined") {
+                        config.proxy = String(obj.proxy || "");
                     }
 
                     log("Loaded config.json", "ok");
@@ -1906,16 +1911,11 @@
             document.getElementById("btnSync").disabled = syncing || scanning;
         }
 
-        function httpGet(url) {
-            var xhr = null;
+        function netHint() {
+            return " ServerXMLHTTP uses the machine-level WinHTTP proxy, not Internet Explorer settings. If a proxy is required, set \"proxy\": \"proxyserver:port\" in config.json and restart, or run \u0027netsh winhttp import proxy source=ie\u0027 as administrator.";
+        }
 
-            try {
-                xhr = new ActiveXObject("MSXML2.ServerXMLHTTP.6.0");
-                xhr.setTimeouts(5000, 5000, 10000, 30000);
-            } catch (e1) {
-                xhr = new ActiveXObject("MSXML2.XMLHTTP");
-            }
-
+        function httpSend(xhr, url) {
             xhr.open("GET", url, false);
             xhr.setRequestHeader("Cache-Control", "no-cache, max-age=0");
             xhr.setRequestHeader("Pragma", "no-cache");
@@ -1925,6 +1925,34 @@
                 status: xhr.status,
                 text: xhr.responseText
             };
+        }
+
+        function httpGet(url) {
+            try {
+                var xhr = new ActiveXObject("MSXML2.ServerXMLHTTP.6.0");
+
+                if (config.proxy) {
+                    try {
+                        xhr.setProxy(2, config.proxy);
+                    } catch (pe) {
+                        log("setProxy failed (" + pe.message + "); using default WinHTTP config.", "warn");
+                    }
+                }
+
+                xhr.setTimeouts(5000, 5000, 10000, 30000);
+
+                return httpSend(xhr, url);
+            } catch (e1) {
+                try {
+                    var fb = new ActiveXObject("MSXML2.XMLHTTP");
+
+                    log("ServerXMLHTTP failed (" + e1.message + "); retrying via MSXML2.XMLHTTP with the user proxy settings." + (config.proxy ? "" : netHint()), "warn");
+
+                    return httpSend(fb, url);
+                } catch (e2) {
+                    throw new Error(e1.message + "; " + e2.message + (config.proxy ? "" : netHint()));
+                }
+            }
         }
 
         function checkUrl(nb, val) {

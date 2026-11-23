@@ -58,6 +58,12 @@
 
 ### Bugfixes (from the V1.2.1 review)
 
+- HTTP layer resilience on corporate networks: when `MSXML2.ServerXMLHTTP.6.0`
+  fails (timeout, proxy refused, connection error), the request is retried once
+  via `MSXML2.XMLHTTP`, which uses the per-user WinINET/IE proxy settings; a new
+  optional `"proxy": "server:port"` key in `config.json` makes `ServerXMLHTTP`
+  connect through a named proxy (`setProxy`), and network-failure log lines now
+  include a hint about WinHTTP vs IE proxy configuration.
 - File writes (`config.json`, `data.json`, CSV exports, register dump) now fall back
   to a FileSystemObject writer when `ADODB.Stream` is blocked by Windows security
   zones (the classic "Safety settings on this computer prohibit accessing a data

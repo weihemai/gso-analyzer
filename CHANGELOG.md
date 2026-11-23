@@ -58,6 +58,16 @@
 
 ### Bugfixes (from the V1.2.1 review)
 
+- Table columns are now resizable: drag the right edge of any column header
+  (cursor turns into a column-resize arrow) to set its width, or double-click a
+  column header to auto-fit the column to its content. Widths are persisted in
+  `config.json` under the new optional `"columnWidths"` key (per column key:
+  `id`, `nb_shortname`, `nb_fullname`, `nb_country`, `scopes`,
+  `nb_status_agg`, `nb_number_gcts`) and restored at startup. The new default
+  for Full Name is 240 px so the Scopes and GCTS Max columns fit on narrower
+  windows, and the table container now scrolls horizontally instead of hiding
+  overflow when total widths exceed the window.
+
 - Register parser updated to the current live list markup (re-verified against
   gso.org.sa, 87 results / 9 pages): NB numbers are now split across inline
   tags (`NB&hyphen;<span>0001</span>`) and previously produced zero recognized

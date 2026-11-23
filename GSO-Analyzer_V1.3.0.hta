@@ -614,19 +614,69 @@
             return fso.FileExists(path);
         }
 
+        function zoneHint() {
+            return " If the .hta file was downloaded, open its file Properties and click Unblock, or move it to a plain local disk folder.";
+        }
+
+        function finalizeTmpFile(tmp, path) {
+            try {
+                if (fso.FileExists(path)) {
+                    backupFile(path);
+                    fso.DeleteFile(path, true);
+                }
+                fso.MoveFile(tmp, path);
+            } catch (e) {
+                if (fso.FileExists(tmp)) {
+                    try { fso.DeleteFile(tmp, true); } catch (e2) {
+                    }
+                }
+                throw e;
+            }
+        }
+
+        function writeTextFileFallback(path, content) {
+            var tmp = path + ".tmp";
+            var file = fso.CreateTextFile(tmp, true, true);
+
+            file.Write(String(content));
+            file.Close();
+            finalizeTmpFile(tmp, path);
+        }
+
         function readTextFile(path) {
-            var stream = new ActiveXObject("ADODB.Stream");
+            try {
+                var stream = new ActiveXObject("ADODB.Stream");
+                var head = new ActiveXObject("ADODB.Stream");
 
-            stream.Type = 2;
-            stream.Charset = "utf-8";
-            stream.Open();
-            stream.LoadFromFile(path);
+                head.Type = 1;
+                head.Open();
+                head.LoadFromFile(path);
+                var bytes = head.Read(3);
+                head.Close();
 
-            var txt = stream.ReadText(-1);
+                stream.Type = 2;
+                stream.Charset = "utf-8";
 
-            stream.Close();
+                if (bytes.length >= 2 && bytes.charCodeAt(0) === 255 && bytes.charCodeAt(1) === 254) {
+                    stream.Charset = "unicode";
+                }
 
-            return txt;
+                stream.Open();
+                stream.LoadFromFile(path);
+
+                var txt = stream.ReadText(-1);
+
+                stream.Close();
+
+                return txt;
+            } catch (e) {
+                var file = fso.OpenTextFile(path, 1, false, -2);
+                var txt2 = file.ReadAll();
+
+                file.Close();
+
+                return txt2;
+            }
         }
 
         function backupFile(path) {
@@ -648,28 +698,22 @@
 
         function writeTextFile(path, content) {
             var tmp = path + ".tmp";
-            var stream = new ActiveXObject("ADODB.Stream");
-
-            stream.Type = 2;
-            stream.Charset = "utf-8";
-            stream.Open();
-            stream.WriteText(String(content));
-            stream.Position = 0;
-            stream.SaveToFile(tmp, 2);
-            stream.Close();
 
             try {
-                if (fso.FileExists(path)) {
-                    backupFile(path);
-                    fso.DeleteFile(path, true);
-                }
-                fso.MoveFile(tmp, path);
+                var stream = new ActiveXObject("ADODB.Stream");
+
+                stream.Type = 2;
+                stream.Charset = "utf-8";
+                stream.Open();
+                stream.WriteText(String(content));
+                stream.Position = 0;
+                stream.SaveToFile(tmp, 2);
+                stream.Close();
+
+                finalizeTmpFile(tmp, path);
             } catch (e) {
-                if (fso.FileExists(tmp)) {
-                    try { fso.DeleteFile(tmp, true); } catch (e2) {
-                    }
-                }
-                throw e;
+                writeTextFileFallback(path, content);
+                log("ADODB.Stream unavailable (" + e.message + "); wrote " + path + " with the FileSystemObject writer instead." + zoneHint(), "warn");
             }
         }
 
@@ -971,7 +1015,7 @@
                 writeTextFile(configFile, stringifyJson(config));
                 log("Saved config.json", "ok");
             } catch (e) {
-                log("Failed to save config.json: " + e.message, "err");
+                log("Failed to save config.json: " + e.message + zoneHint(), "err");
             }
         }
 
@@ -1015,7 +1059,7 @@
                 updateStatus("Data saved");
                 log("Saved data.json", "ok");
             } catch (e) {
-                log("Failed to save data.json: " + e.message, "err");
+                log("Failed to save data.json: " + e.message + zoneHint(), "err");
                 alert("Failed to save data.json: " + e.message);
             }
         }

@@ -53,6 +53,14 @@ functionally identical in HTML/HTA — no impact on the app.
 
 ## Step 3 — Run
 
+- If you downloaded the HTA (browser, GitHub, e-mail): right-click the file →
+  **Properties** → **Unblock** → OK first. A blocked (Mark-of-the-Web) HTA runs
+  in the restricted Internet zone; there `ADODB.Stream` is prohibited and saving
+  `config.json` / `data.json` fails with "Safety settings on this computer
+  prohibit accessing a data source on another domain.". V1.3.0 falls back to a
+  FileSystemObject writer in that case, but unblocking restores full
+  functionality. Run the HTA from a plain local disk folder (not a network
+  share).
 - Double-click `GSO-Analyzer_V1.3.0.hta` in Windows (it runs in the HTA host;
   if your Windows opens it in a browser instead, right-click → Open with →
   **Microsoft (R) HTML Application host**).

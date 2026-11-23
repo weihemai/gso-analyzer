@@ -58,6 +58,11 @@
 
 ### Bugfixes (from the V1.2.1 review)
 
+- File writes (`config.json`, `data.json`, CSV exports, register dump) now fall back
+  to a FileSystemObject writer when `ADODB.Stream` is blocked by Windows security
+  zones (the classic "Safety settings on this computer prohibit accessing a data
+  source on another domain" error on HTA files carrying Mark-of-the-Web), and the
+  log points users to Properties \u2192 Unblock.
 - `checkUrl` now throws on HTTP status != 200 instead of treating any response
   body as "EXISTS".
 - HTTP layer: `MSXML2.ServerXMLHTTP.6.0` with explicit timeouts

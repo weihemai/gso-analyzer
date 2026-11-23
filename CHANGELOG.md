@@ -58,6 +58,29 @@
 
 ### Bugfixes (from the V1.2.1 review)
 
+- Register sync wiped per-scope status values on update: a status-type change
+  (same scope still active but e.g. notified → suspended/withdrawn) wrote
+  `undefined` into `nb_status_<key>` (the change record carried the new value
+  in `to` but not in `status`, which only scope-add changes had). The key then
+  disappeared from `data.json` on the next save/reload and defaulted back to
+  `notified` - so those statuses could never be updated. The change records
+  are uniform now, and the scope flag is only written for genuine scope
+  add/remove changes.
+- Legacy-format `data.json` support: older files store a scope's status inside
+  the `nb_scope_<key>` flag itself (e.g. `"nb_scope_toys": "suspended"`) with
+  no `nb_status_<key>` entry; the loader used to coerce the flag to `true` and
+  invent `"notified"` for it. The status is now taken from the string flag
+  (`suspended`/`expired`/`withdrawn`/`notified`) when the status key is
+  missing - an explicit `nb_status_<key>` still wins when both exist.
+- Status recognition from register cards is tolerant of variants: badge title
+  texts like `"null Suspended"` (leading `null` prefix) are stripped inside
+  `statusFromText`, and word prefixes (e.g. "Suspended in Part,",
+  "Withdrawn partially") map to the base status instead of failing.
+- Register sync no longer overwrites an existing known scope status with an
+  assumed one: when a card's status cannot be read from the badge title, an
+  already-active scope keeps its current status; only genuinely new scopes
+  default to `notified`.
+
 - Table frame size no longer flips between full-height and capped height on
   every table re-render (row click, scan update): the height is now computed
   from the container and log pane sizes and assigned idempotently, instead of

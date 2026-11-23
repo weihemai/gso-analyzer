@@ -12,6 +12,11 @@
     --warn: #d9a441; --err: #d05b5b;
   }
   * { box-sizing: border-box; }
+  .seg { display: inline-flex; }
+  .seg button { border-radius: 0; border-right-width: 0; }
+  .seg button:first-child { border-radius: 4px 0 0 4px; }
+  .seg button:last-child { border-radius: 0 4px 4px 0; border-right-width: 1px; }
+  tr.selrow td { background: #2b3a55 !important; }
   html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink);
     font: 13px/1.45 "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
   header { display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
@@ -79,7 +84,7 @@
 </head>
 <body>
 <header>
-  <h1>GSO Visualizer <small>v0.1.0</small></h1>
+  <h1>GSO Visualizer <small>v0.2.0</small></h1>
   <label class="ctl">data.json
     <input type="file" id="fileInput" accept=".json,application/json" />
   </label>
@@ -111,12 +116,30 @@
     <div class="card">
       <h2>Market development — total live GCTS certificates</h2>
       <div class="ctlrow">
-        <button id="ovTotal" class="active">Total</button>
+        <span class="muted">display</span>
+        <button id="ovTotal" class="active">All NBs (total)</button>
         <button id="ovAffil">Stacked by affiliation</button>
         <button id="ovCountry">Stacked by country</button>
+        <span class="muted" style="border-left:1px solid var(--line);padding-left:10px">series</span>
+        <span class="seg" data-seg="ov">
+          <button data-mode="total" class="active">Total</button>
+          <button data-mode="mom">Δ MoM</button>
+          <button data-mode="yoy">Δ YoY</button>
+        </span>
         <label class="ctl"><input type="checkbox" id="ovYoY" /> show YoY % (secondary axis)</label>
       </div>
       <div id="ovChart" class="chart tall"></div>
+    </div>
+    <div class="card">
+      <h2>Number of active NBs over time&nbsp;<span class="muted">(NBs with at least one live GCTS on the register)</span></h2>
+      <div class="ctlrow">
+        <span class="seg" data-seg="nbs">
+          <button data-mode="total" class="active">Total</button>
+          <button data-mode="mom">Δ MoM</button>
+          <button data-mode="yoy">Δ YoY</button>
+        </span>
+      </div>
+      <div id="ovNBChart" class="chart"></div>
     </div>
     <div class="card">
       <h2>Affiliation groups — current snapshot</h2>
@@ -149,6 +172,11 @@
         <input type="text" id="cmpFilter" placeholder="filter list…" style="width:220px" />
         <span class="muted">Ctrl/Cmd-click to multi-select</span>
         <button id="cmpClear">clear selection</button>
+        <span class="seg" data-seg="cmp">
+          <button data-mode="total" class="active">Total</button>
+          <button data-mode="mom">Δ MoM</button>
+          <button data-mode="yoy">Δ YoY</button>
+        </span>
       </div>
       <div class="cols">
         <div style="flex:0 0 300px"><select id="cmpSel" multiple size="14"></select></div>
@@ -167,6 +195,11 @@
       <div class="ctlrow">
         <label class="ctl"><input type="checkbox" id="affIndep" /> include Independent</label>
         <label class="ctl"><input type="checkbox" id="affGov" /> include Government</label>
+        <span class="seg" data-seg="aff">
+          <button data-mode="total" class="active">Total</button>
+          <button data-mode="mom">Δ MoM</button>
+          <button data-mode="yoy">Δ YoY</button>
+        </span>
         <button id="affCsv">export CSV</button>
       </div>
       <div id="affChart" class="chart tall"></div>
@@ -180,7 +213,14 @@
   <section class="tab" id="tab-country">
     <div class="card">
       <h2>By country of the NB — stacked composition over time</h2>
-      <div class="ctlrow"><button id="ctyCsv">export CSV</button></div>
+      <div class="ctlrow">
+        <span class="seg" data-seg="cty">
+          <button data-mode="total" class="active">Total</button>
+          <button data-mode="mom">Δ MoM</button>
+          <button data-mode="yoy">Δ YoY</button>
+        </span>
+        <button id="ctyCsv">export CSV</button>
+      </div>
       <div id="ctyChart" class="chart tall"></div>
     </div>
     <div class="card">
@@ -190,6 +230,19 @@
   </section>
 
   <section class="tab" id="tab-records">
+    <div class="card">
+      <h2>Timeline of selected NBs&nbsp;<span class="muted">(click table rows to select; none selected = top 10 of the filtered list)</span></h2>
+      <div class="ctlrow">
+        <span class="seg" data-seg="rec">
+          <button data-mode="total" class="active">Total</button>
+          <button data-mode="mom">Δ MoM</button>
+          <button data-mode="yoy">Δ YoY</button>
+        </span>
+        <button id="recClrSel">clear selection</button>
+        <span class="muted" id="recSelInfo"></span>
+      </div>
+      <div id="recChart" class="chart"></div>
+    </div>
     <div class="card">
       <h2>All notified bodies</h2>
       <div class="ctlrow">
@@ -651,6 +704,36 @@ function subset(idx0, idx1) {
   };
 }
 
+/* Series mode: "total" (levels) | "mom" (month-over-month net change) |
+   "yoy" (change vs same month one year earlier). Uses absolute indexes so a
+   narrowed period window still has its history for the first point. */
+var SEG_MODES = { ov: "total", nbs: "total", aff: "total", cty: "total", cmp: "total", rec: "total" };
+function segMode(seg) { return SEG_MODES[seg] || "total"; }
+function setSegMode(seg, mode) {
+  SEG_MODES[seg] = mode;
+  Array.prototype.forEach.call(
+    document.querySelectorAll('.seg[data-seg="' + seg + '"] button'), function (b) {
+      b.classList.toggle("active", b.getAttribute("data-mode") === mode);
+    });
+  if (seg === "ov") drawOverview();
+  else if (seg === "nbs") drawActiveNBs();
+  else if (seg === "aff") drawAffiliation();
+  else if (seg === "cty") drawCountry();
+  else if (seg === "cmp") drawCompare();
+  else if (seg === "rec") drawRecChart();
+}
+function modeSlice(arr, i0, i1, mode) {
+  var out = [];
+  for (var i = i0; i <= i1; i++) {
+    if (i < 0 || i >= arr.length) { out.push(null); continue; }
+    if (mode === "mom") out.push(i > 0 ? Math.round((arr[i] - arr[i - 1]) * 10) / 10 : null);
+    else if (mode === "yoy") out.push(i >= 12 ? Math.round((arr[i] - arr[i - 12]) * 10) / 10 : null);
+    else out.push(Math.round(arr[i] * 10) / 10);
+  }
+  return out;
+}
+function modeTooltip(v) { return v == null ? "–" : fmt(v); }
+
 /* ---------- overview ---------- */
 
 function drawOverview() {
@@ -659,14 +742,15 @@ function drawOverview() {
   if (!ch) return;
   var modeBtn = document.querySelector("#tab-overview .ctlrow button.active");
   var mode = modeBtn ? modeBtn.id : "ovTotal";
+  var sMode = segMode("ov");
   var pr = periodRange(), sub = subset(pr.i0, pr.i1);
+  var ovYoY = $("ovYoY");
+  ovYoY.disabled = sMode !== "total";
   var seriesSet = [];
+  var suf = sMode === "mom" ? " (Δ MoM)" : sMode === "yoy" ? " (Δ YoY)" : "";
   if (mode === "ovTotal") {
-    var total = ST.nbs.reduce(function (acc, nb) {
-      for (var i = 0; i < acc.length; i++) acc[i] += nb.series[pr.i0 + i];
-      return acc;
-    }, new Array(sub.labels.length).fill(0));
-    seriesSet = [{ name: "Total live GCTS", data: total, stack: null }];
+    var total = ENGINE.sumSeries(ENGINE.aggregateBy(ST.nbs, function (n) { return "*"; }));
+    seriesSet = [{ name: "Total live GCTS" + suf, data: modeSlice(total, pr.i0, pr.i1, sMode), stack: null }];
   } else {
     var byKey = ENGINE.aggregateBy(ST.nbs, mode === "ovAffil"
       ? function (n) { return n.affiliation; }
@@ -675,22 +759,22 @@ function drawOverview() {
       return byKey[b][byKey[b].length - 1] - byKey[a][byKey[a].length - 1];
     });
     seriesSet = groups.map(function (g) {
-      return { name: g, data: sub.of(byKey[g]), stack: "total" };
+      return { name: g + suf, data: modeSlice(byKey[g], pr.i0, pr.i1, sMode), stack: "total" };
     });
   }
   var s = seriesSet.map(function (ser) {
     return {
-      name: ser.name, type: "line", data: ser.data.map(function (v) { return Math.round(v * 10) / 10; }),
+      name: ser.name, type: "line", data: ser.data,
       symbol: "none", stack: ser.stack,
       areaStyle: ser.stack ? { opacity: 0.85 } : { opacity: 0.15 },
       lineStyle: { width: ser.stack ? 1 : 2.5 },
       emphasis: { focus: "series" }
     };
   });
-  if ($("ovYoY").checked && ST.labels.length > 12) {
+  if (sMode === "total" && ovYoY.checked && ST.labels.length > 12) {
     var totSeries = mode === "ovTotal"
       ? seriesSet[0].data
-      : sub.of(ENGINE.sumSeries(ENGINE.aggregateBy(ST.nbs, function (n) { return n.affiliation; })));
+    : sub.of(ENGINE.sumSeries(ENGINE.aggregateBy(ST.nbs, function (n) { return n.affiliation; })));
     var yoy = sub.labels.map(function (_, i) {
       var jNow = pr.i0 + i, jPast = jNow - 12;
       if (jPast < 0) return null;
@@ -720,6 +804,33 @@ function drawOverview() {
     color: palette(Math.max(seriesSet.length, 1))
   }, { notMerge: true });
   drawOvTable();
+}
+
+function drawActiveNBs() {
+  var ch = chart("ovNBChart");
+  if (!ch) return;
+  var sMode = segMode("nbs");
+  var pr = periodRange(), sub = subset(pr.i0, pr.i1);
+  var act = ST.grid.map(function (_, i) {
+    var c = 0;
+    ST.nbs.forEach(function (nb) { if ((nb.series[i] || 0) > 0.5) c++; });
+    return c;
+  });
+  ch.setOption({
+    backgroundColor: "transparent",
+    tooltip: { trigger: "axis", valueFormatter: modeTooltip },
+    grid: { left: 70, right: 20, top: 20, bottom: 30 },
+    xAxis: { type: "category", data: sub.labels, axisLabel: { color: "#8b94a7" },
+      axisLine: { lineStyle: { color: "#2a3549" } } },
+    yAxis: { type: "value", minInterval: 1,
+      axisLabel: { color: "#8b94a7" }, splitLine: { lineStyle: { color: "#1d2637" } } },
+    series: [{
+      name: "Active NBs" + (sMode === "mom" ? " (Δ MoM)" : sMode === "yoy" ? " (Δ YoY)" : ""),
+      type: "line", data: modeSlice(act, pr.i0, pr.i1, sMode),
+      symbol: "none", areaStyle: { opacity: 0.15 }, lineStyle: { width: 2.5 },
+      color: "#70ad47"
+    }]
+  }, { notMerge: true });
 }
 
 function drawKpiStrip() {
@@ -858,14 +969,15 @@ function drawCompare() {
   if (!ch || !ST.labels.length) return;
   var sel = Array.prototype.slice.call($("cmpSel").selectedOptions)
     .map(function (o) { return o.value; });
+  var sMode = segMode("cmp");
   var pr = periodRange(), sub = subset(pr.i0, pr.i1);
   var selNBs = ST.nbs.filter(function (n) { return sel.indexOf(n.id) >= 0; });
   var series = selNBs.map(function (nb) {
-    return { nb: nb, data: sub.of(nb.series).map(function (v) { return Math.round(v * 10) / 10; }) };
+    return { nb: nb, data: modeSlice(nb.series, pr.i0, pr.i1, sMode) };
   });
   ch.setOption({
     backgroundColor: "transparent",
-    tooltip: { trigger: "axis", valueFormatter: function (v) { return v == null ? "–" : fmt(v); } },
+    tooltip: { trigger: "axis", valueFormatter: modeTooltip },
     legend: { textStyle: { color: "#8b94a7" }, type: "scroll" },
     grid: { left: 70, right: 20, top: 40, bottom: 30 },
     xAxis: { type: "category", data: sub.labels, axisLabel: { color: "#8b94a7" },
@@ -930,17 +1042,17 @@ function drawAffiliation() {
   renderDimension(ch, "affChart", $("affTable"), function (n) { return n.affiliation; }, function (g) {
     if (g in groupsSel) return groupsSel[g];
     return true;
-  });
+  }, "aff");
 }
 
 function drawCountry() {
   var ch = chart("ctyChart");
   renderDimension(ch, "ctyChart", $("ctyTable"), function (n) { return n.country || "?"; }, function () {
     return true;
-  });
+  }, "cty");
 }
 
-function renderDimension(ch, chartId, table, keyFn, includeFn) {
+function renderDimension(ch, chartId, table, keyFn, includeFn, seg) {
   if (!ch || !table || !ST.labels.length) return;
   var byKey = ENGINE.aggregateBy(ST.nbs, keyFn);
   var groups = Object.keys(byKey).filter(function (g) {
@@ -950,12 +1062,13 @@ function renderDimension(ch, chartId, table, keyFn, includeFn) {
   }).sort(function (a, b) {
     return byKey[b][byKey[b].length - 1] - byKey[a][byKey[a].length - 1];
   });
-  drawStacked(ch, groups, byKey);
+  drawStacked(ch, groups, byKey, seg);
   renderDimTable(table, groups, byKey, keyFn);
   ch.__groups = groups; ch.__byKey = byKey; ch.__keyFn = keyFn;
 }
 
-function drawStacked(ch, groups, byKey) {
+function drawStacked(ch, groups, byKey, seg) {
+  var sMode = segMode(seg);
   var pr = periodRange(), sub = subset(pr.i0, pr.i1);
   ch.setOption({
     backgroundColor: "transparent",
@@ -968,8 +1081,9 @@ function drawStacked(ch, groups, byKey) {
       splitLine: { lineStyle: { color: "#1d2637" } } },
     series: groups.map(function (g) {
       return {
-        name: g, type: "line", stack: "m",
-        data: sub.of(byKey[g]).map(function (v) { return Math.round(v); }),
+        name: g + (sMode === "mom" ? " (Δ MoM)" : sMode === "yoy" ? " (Δ YoY)" : ""),
+        type: "line", stack: "m",
+        data: modeSlice(byKey[g], pr.i0, pr.i1, sMode),
         symbol: "none", lineStyle: { width: 1 }, areaStyle: { opacity: 0.85 },
         emphasis: { focus: "series" }
       };
@@ -1042,23 +1156,65 @@ function download(text, name, type) {
 /* ---------- records ---------- */
 
 var recSort = { key: "now", dir: -1 };
+var recSel = {};
 
-function drawRecords() {
-  if (!ST.nbs.length) return;
+function recordsFiltered() {
   var q = $("recSearch").value.toLowerCase();
   var aff = $("recAffil").value;
   var cty = $("recCountry").value;
   var scope = $("recScope").value;
-  var iLast = ST.labels.length - 1;
-  var iYear = Math.max(0, iLast - 12);
-  var total = sumAllNB(iLast);
-  var rows = ST.nbs.filter(function (nb) {
+  return ST.nbs.filter(function (nb) {
     if (aff && nb.affiliation !== aff) return false;
     if (cty && nb.country !== cty) return false;
     if (scope && !nb.scopes.some(function (s) { return s.key === scope && s.on; })) return false;
     if (q && (nb.shortname + " " + nb.fullname + " " + nb.id).toLowerCase().indexOf(q) < 0) return false;
     return true;
-  }).map(function (nb) {
+  });
+}
+
+function drawRecChart() {
+  var tab = document.getElementById("tab-records");
+  if (!tab || !tab.classList.contains("active") || !ST.labels.length) return;
+  var ch = chart("recChart");
+  if (!ch) return;
+  var sMode = segMode("rec");
+  var pr = periodRange(), sub = subset(pr.i0, pr.i1);
+  var ids = Object.keys(recSel).filter(function (k) { return recSel[k]; });
+  var selNBs = ST.nbs.filter(function (n) { return ids.indexOf(n.id) >= 0; });
+  if (!selNBs.length) {
+    selNBs = recordsFiltered().slice()
+      .sort(function (a, b) { return (b.series[pr.i1] || 0) - (a.series[pr.i1] || 0); })
+      .slice(0, 10);
+  }
+  var series = selNBs.map(function (nb) {
+    return { nb: nb, data: modeSlice(nb.series, pr.i0, pr.i1, sMode) };
+  });
+  ch.setOption({
+    backgroundColor: "transparent",
+    tooltip: { trigger: "axis", valueFormatter: modeTooltip },
+    legend: { textStyle: { color: "#8b94a7" }, type: "scroll" },
+    grid: { left: 70, right: 20, top: 40, bottom: 30 },
+    xAxis: { type: "category", data: sub.labels, axisLabel: { color: "#8b94a7" },
+      axisLine: { lineStyle: { color: "#2a3549" } } },
+    yAxis: { type: "value", axisLabel: { color: "#8b94a7", formatter: formatThousand },
+      splitLine: { lineStyle: { color: "#1d2637" } } },
+    series: series.map(function (s) {
+      return {
+        name: s.nb.shortname, type: "line", data: s.data,
+        symbol: "circle", symbolSize: 3, lineStyle: { width: 2 },
+        emphasis: { focus: "series" }
+      };
+    }),
+    color: palette(Math.max(series.length, 1))
+  }, { notMerge: true });
+}
+
+function drawRecords() {
+  if (!ST.nbs.length) return;
+  var iLast = ST.labels.length - 1;
+  var iYear = Math.max(0, iLast - 12);
+  var total = sumAllNB(iLast);
+  var rows = recordsFiltered().map(function (nb) {
     var now = nb.series[iLast] || 0, y = nb.series[iYear] || 0;
     return {
       nb: nb, now: now, d12: now - y, mo: (now - y) / 12,
@@ -1076,17 +1232,30 @@ function drawRecords() {
     return dir * ((va || 0) - (vb || 0));
   });
   var t = $("recTable");
-  t.innerHTML = "<thead><tr>" +
-    col("id", "ID") + col("shortname", "Short name") + col("fullname", "Full name") +
-    col("country", "Country") + col("affiliation", "Affiliation") +
-    "<th>Scopes</th>" +
-    col("now", "GCTS now") + col("d12", "Δ 12m") + col("mo", "GCTS/mo") +
-    col("share", "share") + "<th>First snapshot</th>" +
-    "<th>Prev. names</th></tr></thead>";
+  t.innerHTML = "";
+  var thead = el("thead");
+  var trh = el("tr");
+  trh.appendChild(col("id", "ID"));
+  trh.appendChild(col("shortname", "Short name"));
+  trh.appendChild(col("fullname", "Full name"));
+  trh.appendChild(col("country", "Country"));
+  trh.appendChild(col("affiliation", "Affiliation"));
+  trh.appendChild(el("th", null, "Scopes"));
+  trh.appendChild(col("now", "GCTS now"));
+  trh.appendChild(col("d12", "Δ 12m"));
+  trh.appendChild(col("mo", "GCTS/mo"));
+  trh.appendChild(col("share", "share"));
+  trh.appendChild(el("th", null, "First snapshot"));
+  trh.appendChild(el("th", null, "Prev. names"));
+  thead.appendChild(trh);
+  t.appendChild(thead);
   var tb = el("tbody");
   rows.forEach(function (r) {
     var nb = r.nb;
     var tr = el("tr");
+    if (recSel[nb.id]) tr.className = "selrow";
+    tr.title = "click to select/deselect for the timeline chart";
+    tr.dataset.id = nb.id;
     tr.appendChild(el("td", "num muted", nb.id));
     tr.appendChild(el("td", null, nb.shortname));
     var fn = el("td", "muted", nb.fullname);
@@ -1116,6 +1285,11 @@ function drawRecords() {
   if (!rows.length) {
     t.innerHTML = "<tbody><tr><td class='muted'>No NB matches the current filters.</td></tr></tbody>";
   }
+  var selCount = Object.keys(recSel).filter(function (k) { return recSel[k]; }).length;
+  $("recSelInfo").textContent = selCount
+    ? selCount + " NB(s) selected"
+    : "nothing selected — showing top 10 of the filtered list";
+  drawRecChart();
 
   function col(key, label) {
     var th = el("th", null, label + (recSort.key === key ? (recSort.dir > 0 ? " ↑" : " ↓") : ""));
@@ -1167,7 +1341,7 @@ function drawActiveTab() {
   drawKpiStrip();
   var btn = document.querySelector("#tabs button.active");
   var name = btn ? btn.getAttribute("data-tab") : "overview";
-  if (name === "overview") drawOverview();
+  if (name === "overview") { drawOverview(); drawActiveNBs(); }
   if (name === "snapshot") drawSnapshot();
   if (name === "compare") drawCompare();
   if (name === "affiliation") drawAffiliation();
@@ -1205,12 +1379,24 @@ function wire() {
     Array.prototype.forEach.call($("cmpSel").options, function (o) { o.selected = false; });
     drawCompare();
   };
+  Array.prototype.forEach.call(document.querySelectorAll(".seg button"), function (b) {
+    b.onclick = function () {
+      setSegMode(b.parentElement.getAttribute("data-seg"), b.getAttribute("data-mode"));
+    };
+  });
   $("exclChk").onchange = function () { applySeries(); drawActiveTab(); };
   $("affIndep").onchange = drawAffiliation;
   $("affGov").onchange = drawAffiliation;
   $("affCsv").onclick = function () { csvFor("affChart"); };
   $("ctyCsv").onclick = function () { csvFor("ctyChart"); };
   $("recCsv").onclick = recordsCsv;
+  $("recClrSel").onclick = function () { recSel = {}; drawRecords(); };
+  $("recTable").onclick = function (e) {
+    var row = e.target && e.target.closest ? e.target.closest("tr") : null;
+    if (!row || !row.dataset || !row.dataset.id) return;
+    recSel[row.dataset.id] = !recSel[row.dataset.id];
+    drawRecords();
+  };
   ["recSearch", "recAffil", "recCountry", "recScope"].forEach(function (id) {
     $(id).oninput = drawRecords; $(id).onchange = drawRecords;
   });

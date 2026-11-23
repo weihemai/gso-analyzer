@@ -36,9 +36,15 @@ analytics in any browser. Data stays local - nothing is uploaded.
   `http://localhost:8000/GSO-Visualizer.html`.
 
 Views: Overview (total market timeline incl. overall sum, KPI strip: live GCTS,
-GCTS/month, GCTS/year, YoY), Snapshot Donut at any month (all NBs / by
-affiliation / by country), Compare NBs, By Affiliation, By Country, and a
-sortable/filterable NB Records table with CSV export.
+GCTS/month, GCTS/year, YoY, plus the number of active NBs over time), Snapshot
+Donut at any month (all NBs / by affiliation / by country), Compare NBs, By
+Affiliation, By Country, and a sortable/filterable NB Records table with CSV
+export and a timeline chart of the selected NBs.
+
+Every timeline chart has a series toggle: **Total** (levels) / **Δ MoM**
+(month-over-month net change) / **Δ YoY** (change vs the same month one year
+earlier); deltas use absolute history, so narrowed period windows still start
+with a defined value.
 
 Data handling notes:
 - Snapshot dates are irregular and non-equidistant; the engine resamples onto a

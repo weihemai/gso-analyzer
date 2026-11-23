@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>GSO Visualizer v0.1.0</title>
+<title>GSO Visualizer v0.4.0</title>
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
 <style>
   :root {
@@ -84,7 +84,7 @@
 </head>
 <body>
 <header>
-  <h1>GSO Visualizer <small>v0.3.0</small></h1>
+  <h1>GSO Visualizer <small>v0.4.0</small></h1>
   <label class="ctl">data.json
     <input type="file" id="fileInput" accept=".json,application/json" />
   </label>
@@ -156,6 +156,11 @@
         <label class="ctl"><input type="radio" name="snapMode" value="nbs" /> all NBs</label>
         <label class="ctl"><input type="radio" name="snapMode" value="affiliation" checked /> by affiliation</label>
         <label class="ctl"><input type="radio" name="snapMode" value="country" /> by country</label>
+        <span class="seg" data-seg="snap">
+          <button data-mode="total" class="active">Total</button>
+          <button data-mode="mom">Δ MoM</button>
+          <button data-mode="yoy">Δ YoY</button>
+        </span>
         <span class="muted" id="snapTotal"></span>
       </div>
       <div class="cols">
@@ -708,7 +713,7 @@ function subset(idx0, idx1) {
 /* Series mode: "total" (levels) | "mom" (month-over-month net change) |
    "yoy" (change vs same month one year earlier). Uses absolute indexes so a
    narrowed period window still has its history for the first point. */
-var SEG_MODES = { ov: "total", nbs: "total", aff: "total", cty: "total", cmp: "total", rec: "total" };
+var SEG_MODES = { ov: "total", nbs: "total", aff: "total", cty: "total", cmp: "total", rec: "total", snap: "total" };
 function segMode(seg) { return SEG_MODES[seg] || "total"; }
 function setSegMode(seg, mode) {
   SEG_MODES[seg] = mode;
@@ -722,6 +727,7 @@ function setSegMode(seg, mode) {
   else if (seg === "cty") drawCountry();
   else if (seg === "cmp") drawCompare();
   else if (seg === "rec") drawRecChart();
+  else if (seg === "snap") drawSnapshot();
 }
 function modeSlice(arr, i0, i1, mode) {
   var out = [];
@@ -996,15 +1002,28 @@ function drawSnapshot() {
     });
     return m;
   }
+  var sMode = segMode("snap");
+  var metricLbl = sMode === "mom" ? "Δ MoM" : sMode === "yoy" ? "Δ YoY" : "GCTS";
   var vals = valsAt(idx);
   var valsPrev = idx > 0 ? valsAt(idx - 1) : null;
   var valsYear = idx >= 12 ? valsAt(idx - 12) : null;
+  function signedDelta(k) {
+    if (sMode === "mom") return idx > 0 ? vals[k] - (valsPrev[k] || 0) : null;
+    if (sMode === "yoy") return idx >= 12 ? vals[k] - (valsYear[k] || 0) : null;
+    return null;
+  }
   var entries = Object.keys(vals).filter(function (k) { return Math.round(vals[k]) > 0; })
     .map(function (k) {
       var mom = valsPrev ? vals[k] - (valsPrev[k] || 0) : null;
       var yoy = valsYear ? vals[k] - (valsYear[k] || 0) : null;
-      return { name: k, value: Math.round(vals[k]), mom: mom, yoy: yoy };
+      var d = signedDelta(k);
+      return {
+        name: k,
+        value: sMode === "total" ? Math.round(vals[k]) : (d == null ? 0 : Math.round(Math.abs(d))),
+        signed: d, mom: mom, yoy: yoy
+      };
     })
+    .filter(function (e) { return sMode === "total" ? e.value > 0 : e.signed != null && e.value > 0; })
     .sort(function (a, b) { return b.value - a.value; });
   var total = entries.reduce(function (a, e) { return a + e.value; }, 0);
   var maxSlices = mode === "nbs" ? 12 : 16;
@@ -1019,21 +1038,37 @@ function drawSnapshot() {
     top.push({
       name: "Others (" + rest.length + ")",
       value: rest.reduce(function (a, e) { return a + e.value; }, 0),
+      signed: sMode === "total" ? null : sumDelta("signed"),
       mom: sumDelta("mom"),
       yoy: sumDelta("yoy")
     });
   }
-  $("snapTotal").textContent = "total " + fmt(total) + " GCTS · " + entries.length + " " + title.toLowerCase() + "(s) with certificates · deltas vs " + (idx > 0 ? ST.labels[idx - 1] : "–") + " / " + (idx >= 12 ? ST.labels[idx - 12] : "–");
+  if (!entries.length) {
+    $("snapTotal").textContent = "no " + metricLbl + " values at " + ST.labels[idx] +
+      (sMode === "mom" ? " — needs at least one previous month" :
+       sMode === "yoy" ? " — needs at least 12 months of history" : "");
+  } else if (sMode === "total") {
+    $("snapTotal").textContent = "total " + fmt(total) + " GCTS · " + entries.length + " " + title.toLowerCase() + "(s) with certificates · deltas vs " + (idx > 0 ? ST.labels[idx - 1] : "–") + " / " + (idx >= 12 ? ST.labels[idx - 12] : "–");
+  } else {
+    $("snapTotal").textContent = metricLbl + " magnitudes · " + entries.length + " " + title.toLowerCase() + "(s) with change · basis: end of " + (sMode === "mom" ? ST.labels[idx - 1] : ST.labels[idx - 12]);
+  }
 
   ch.setOption({
     backgroundColor: "transparent",
     tooltip: { trigger: "item",
       formatter: function (p) {
         var e = top.filter(function (x) { return x.name === p.name; })[0];
-        var html = esc(p.name) + "<br/>" + fmt(p.value) + " GCTS (" + p.percent + "%";
-        if (e) {
-          if (e.mom != null) html += " · Δ MoM " + (e.mom >= 0 ? "+" : "") + fmt(e.mom);
-          if (e.yoy != null) html += " · Δ YoY " + (e.yoy >= 0 ? "+" : "") + fmt(e.yoy);
+        var html = esc(p.name) + "<br/>";
+        if (sMode === "total") {
+          html += fmt(p.value) + " GCTS (" + p.percent + "%";
+          if (e) {
+            if (e.mom != null) html += " · Δ MoM " + (e.mom >= 0 ? "+" : "") + fmt(e.mom);
+            if (e.yoy != null) html += " · Δ YoY " + (e.yoy >= 0 ? "+" : "") + fmt(e.yoy);
+          }
+        } else {
+          var sd = e ? e.signed || 0 : 0;
+          html += metricLbl + " " + (sd >= 0 ? "+" : "−") + fmt(Math.abs(sd)) +
+            " (" + p.percent + "% of |change|";
         }
         return html + ")";
       } },
@@ -1050,7 +1085,8 @@ function drawSnapshot() {
         fontSize: 16, fontWeight: "bold" }
     }, {
       type: "text", left: "38%", top: "55%",
-      style: { text: ST.labels[idx], textAlign: "center", fill: "#8b94a7", fontSize: 11 }
+      style: { text: ST.labels[idx] + (sMode === "total" ? "" : " · " + metricLbl),
+        textAlign: "center", fill: "#8b94a7", fontSize: 11 }
     }],
     color: palette(Math.max(top.length, 1))
   }, { notMerge: true });
@@ -1065,7 +1101,7 @@ function drawSnapshot() {
   });
   sortableTable(t, "snap", [
     { key: "name", label: title },
-    { key: "value", label: "GCTS @ " + ST.labels[idx], num: true },
+    { key: "value", label: sMode === "total" ? "GCTS @ " + ST.labels[idx] : "|" + metricLbl + "|", num: true },
     { key: "share", label: "share", num: true },
     { key: "mom", label: "Δ MoM", num: true },
     { key: "yoy", label: "Δ YoY", num: true }
@@ -1576,6 +1612,9 @@ function wire() {
   }
 }
 
+document.title = (document.querySelector("h1 small") || { textContent: "" }).textContent.trim()
+  ? "GSO Visualizer " + document.querySelector("h1 small").textContent.trim()
+  : document.title;
 wire();
 </script>
 </body>

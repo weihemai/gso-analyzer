@@ -487,7 +487,9 @@
             step: 2000,
             threshold: 1,
             verbose: true,
-            cleanupDone: false
+            cleanupDone: false,
+            proxy: "",
+            httpEngine: "auto"
         };
 
         var groupKeysSorted = [];
@@ -505,6 +507,7 @@
 
         var isSyncing = false;
         var syncState = null;
+        var userProxyPreferred = false;
 
         var LOG_MAX_LINES = 500;
 
@@ -614,19 +617,69 @@
             return fso.FileExists(path);
         }
 
+        function zoneHint() {
+            return " If the .hta file was downloaded, open its file Properties and click Unblock, or move it to a plain local disk folder.";
+        }
+
+        function finalizeTmpFile(tmp, path) {
+            try {
+                if (fso.FileExists(path)) {
+                    backupFile(path);
+                    fso.DeleteFile(path, true);
+                }
+                fso.MoveFile(tmp, path);
+            } catch (e) {
+                if (fso.FileExists(tmp)) {
+                    try { fso.DeleteFile(tmp, true); } catch (e2) {
+                    }
+                }
+                throw e;
+            }
+        }
+
+        function writeTextFileFallback(path, content) {
+            var tmp = path + ".tmp";
+            var file = fso.CreateTextFile(tmp, true, true);
+
+            file.Write(String(content));
+            file.Close();
+            finalizeTmpFile(tmp, path);
+        }
+
         function readTextFile(path) {
-            var stream = new ActiveXObject("ADODB.Stream");
+            try {
+                var stream = new ActiveXObject("ADODB.Stream");
+                var head = new ActiveXObject("ADODB.Stream");
 
-            stream.Type = 2;
-            stream.Charset = "utf-8";
-            stream.Open();
-            stream.LoadFromFile(path);
+                head.Type = 1;
+                head.Open();
+                head.LoadFromFile(path);
+                var bytes = head.Read(3);
+                head.Close();
 
-            var txt = stream.ReadText(-1);
+                stream.Type = 2;
+                stream.Charset = "utf-8";
 
-            stream.Close();
+                if (bytes.length >= 2 && bytes.charCodeAt(0) === 255 && bytes.charCodeAt(1) === 254) {
+                    stream.Charset = "unicode";
+                }
 
-            return txt;
+                stream.Open();
+                stream.LoadFromFile(path);
+
+                var txt = stream.ReadText(-1);
+
+                stream.Close();
+
+                return txt;
+            } catch (e) {
+                var file = fso.OpenTextFile(path, 1, false, -2);
+                var txt2 = file.ReadAll();
+
+                file.Close();
+
+                return txt2;
+            }
         }
 
         function backupFile(path) {
@@ -648,28 +701,22 @@
 
         function writeTextFile(path, content) {
             var tmp = path + ".tmp";
-            var stream = new ActiveXObject("ADODB.Stream");
-
-            stream.Type = 2;
-            stream.Charset = "utf-8";
-            stream.Open();
-            stream.WriteText(String(content));
-            stream.Position = 0;
-            stream.SaveToFile(tmp, 2);
-            stream.Close();
 
             try {
-                if (fso.FileExists(path)) {
-                    backupFile(path);
-                    fso.DeleteFile(path, true);
-                }
-                fso.MoveFile(tmp, path);
+                var stream = new ActiveXObject("ADODB.Stream");
+
+                stream.Type = 2;
+                stream.Charset = "utf-8";
+                stream.Open();
+                stream.WriteText(String(content));
+                stream.Position = 0;
+                stream.SaveToFile(tmp, 2);
+                stream.Close();
+
+                finalizeTmpFile(tmp, path);
             } catch (e) {
-                if (fso.FileExists(tmp)) {
-                    try { fso.DeleteFile(tmp, true); } catch (e2) {
-                    }
-                }
-                throw e;
+                writeTextFileFallback(path, content);
+                log("ADODB.Stream unavailable (" + e.message + "); wrote " + path + " with the FileSystemObject writer instead." + zoneHint(), "warn");
             }
         }
 
@@ -952,6 +999,20 @@
                         config.cleanupDone = !!obj.cleanupDone;
                     }
 
+                    if (typeof obj.proxy !== "undefined") {
+                        config.proxy = String(obj.proxy || "");
+                    }
+
+                    if (typeof obj.httpEngine !== "undefined") {
+                        var eng = String(obj.httpEngine || "").toLowerCase();
+
+                        if (eng === "auto" || eng === "user" || eng === "server") {
+                            config.httpEngine = eng;
+                        } else {
+                            log("Unknown httpEngine value in config.json: " + eng + " (using \"auto\").", "warn");
+                        }
+                    }
+
                     log("Loaded config.json", "ok");
                 } else {
                     saveConfig();
@@ -971,7 +1032,7 @@
                 writeTextFile(configFile, stringifyJson(config));
                 log("Saved config.json", "ok");
             } catch (e) {
-                log("Failed to save config.json: " + e.message, "err");
+                log("Failed to save config.json: " + e.message + zoneHint(), "err");
             }
         }
 
@@ -1015,7 +1076,7 @@
                 updateStatus("Data saved");
                 log("Saved data.json", "ok");
             } catch (e) {
-                log("Failed to save data.json: " + e.message, "err");
+                log("Failed to save data.json: " + e.message + zoneHint(), "err");
                 alert("Failed to save data.json: " + e.message);
             }
         }
@@ -1862,16 +1923,11 @@
             document.getElementById("btnSync").disabled = syncing || scanning;
         }
 
-        function httpGet(url) {
-            var xhr = null;
+        function netHint() {
+            return " ServerXMLHTTP uses the machine-level WinHTTP proxy, not Internet Explorer settings. If a proxy is required, set \"proxy\": \"proxyserver:port\" in config.json and restart, or run \u0027netsh winhttp import proxy source=ie\u0027 as administrator.";
+        }
 
-            try {
-                xhr = new ActiveXObject("MSXML2.ServerXMLHTTP.6.0");
-                xhr.setTimeouts(5000, 5000, 10000, 30000);
-            } catch (e1) {
-                xhr = new ActiveXObject("MSXML2.XMLHTTP");
-            }
-
+        function httpSend(xhr, url) {
             xhr.open("GET", url, false);
             xhr.setRequestHeader("Cache-Control", "no-cache, max-age=0");
             xhr.setRequestHeader("Pragma", "no-cache");
@@ -1881,6 +1937,54 @@
                 status: xhr.status,
                 text: xhr.responseText
             };
+        }
+
+        function httpGet(url) {
+            var engine = config.httpEngine || "auto";
+
+            if (engine === "user") {
+                return httpSend(new ActiveXObject("MSXML2.XMLHTTP"), url);
+            }
+
+            if (engine === "auto" && userProxyPreferred) {
+                try {
+                    return httpSend(new ActiveXObject("MSXML2.XMLHTTP"), url);
+                } catch (e0) {
+                    userProxyPreferred = false;
+                    log("User-proxy request failed (" + e0.message + "); falling back to ServerXMLHTTP.", "warn");
+                }
+            }
+
+            try {
+                var xhr = new ActiveXObject("MSXML2.ServerXMLHTTP.6.0");
+
+                if (config.proxy) {
+                    try {
+                        xhr.setProxy(2, config.proxy);
+                    } catch (pe) {
+                        log("setProxy failed (" + pe.message + "); using default WinHTTP config.", "warn");
+                    }
+                }
+
+                xhr.setTimeouts(5000, 5000, 10000, 30000);
+
+                return httpSend(xhr, url);
+            } catch (e1) {
+                if (engine === "server") {
+                    throw new Error(e1.message + (config.proxy ? "" : netHint()));
+                }
+
+                try {
+                    var fb = new ActiveXObject("MSXML2.XMLHTTP");
+
+                    log("ServerXMLHTTP failed (" + e1.message + "); retrying via MSXML2.XMLHTTP with the user proxy settings." + (config.proxy ? "" : netHint()), "warn");
+                    userProxyPreferred = true;
+
+                    return httpSend(fb, url);
+                } catch (e2) {
+                    throw new Error(e1.message + "; " + e2.message + (config.proxy ? "" : netHint()));
+                }
+            }
         }
 
         function checkUrl(nb, val) {

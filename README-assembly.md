@@ -53,6 +53,14 @@ functionally identical in HTML/HTA — no impact on the app.
 
 ## Step 3 — Run
 
+- If you downloaded the HTA (browser, GitHub, e-mail): right-click the file →
+  **Properties** → **Unblock** → OK first. A blocked (Mark-of-the-Web) HTA runs
+  in the restricted Internet zone; there `ADODB.Stream` is prohibited and saving
+  `config.json` / `data.json` fails with "Safety settings on this computer
+  prohibit accessing a data source on another domain.". V1.3.0 falls back to a
+  FileSystemObject writer in that case, but unblocking restores full
+  functionality. Run the HTA from a plain local disk folder (not a network
+  share).
 - Double-click `GSO-Analyzer_V1.3.0.hta` in Windows (it runs in the HTA host;
   if your Windows opens it in a browser instead, right-click → Open with →
   **Microsoft (R) HTML Application host**).
@@ -68,6 +76,18 @@ functionally identical in HTML/HTA — no impact on the app.
 
 - The scanner uses `MSXML2.ServerXMLHTTP.6.0` (with `XMLHTTP` fallback); run the
   HTA locally from disk, not from a network share with stricter security.
+- If register sync / diagnostics report timeouts on a network where the browser
+  reaches gso.org.sa fine, your machine most likely routes all traffic through
+  the per-user (WinINET/IE) proxy. `MSXML2.ServerXMLHTTP` uses the machine-level
+  WinHTTP proxy instead, not the Internet Explorer settings. Two fixes (both in
+  `config.json`, read at startup):
+  - add `"httpEngine": "user"` — the app then requests only via
+    `MSXML2.XMLHTTP`, exactly like V1.2.1, which follows the user proxy and
+    works on such networks;
+  - and/or run `netsh winhttp import proxy source=ie` as administrator, or add
+    `"proxy": "proxyserver:port"`, to make the WinHTTP route work as well.
+  The default `"httpEngine": "auto"` starts on `ServerXMLHTTP` and switches to
+  the user-proxy engine automatically after its first transport failure.
 - **Diagnostics → Dump List HTML** writes `register_dump.html` to the app folder
   and shows how many NBs the parser recognized on page 1 (expect 9 of 10 with
   the duplicate NB-0008 skipped) — use it first if register sync ever returns

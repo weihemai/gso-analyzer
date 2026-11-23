@@ -58,6 +58,22 @@
 
 ### Bugfixes (from the V1.2.1 review)
 
+- HTTP layer resilience on corporate networks: the engine is now configurable
+  via the new optional `"httpEngine"` key in `config.json`, read at startup:
+  - `"auto"` (default) — `MSXML2.ServerXMLHTTP.6.0` first; on any transport
+    failure it retries once via `MSXML2.XMLHTTP` (per-user WinINET/IE proxy) and
+    then prefers that engine for the rest of the session;
+  - `"user"` — always `MSXML2.XMLHTTP`, i.e. exactly the V1.2.1 behavior, for
+    proxy-only networks where the direct WinHTTP route is blocked;
+  - `"server"` — always `ServerXMLHTTP` with explicit timeouts, no fallback.
+  An optional `"proxy": "server:port"` key in `config.json` makes `ServerXMLHTTP`
+  connect through a named proxy (`setProxy`), and network-failure log lines now
+  include a hint about WinHTTP vs IE proxy configuration.
+- File writes (`config.json`, `data.json`, CSV exports, register dump) now fall back
+  to a FileSystemObject writer when `ADODB.Stream` is blocked by Windows security
+  zones (the classic "Safety settings on this computer prohibit accessing a data
+  source on another domain" error on HTA files carrying Mark-of-the-Web), and the
+  log points users to Properties \u2192 Unblock.
 - `checkUrl` now throws on HTTP status != 200 instead of treating any response
   body as "EXISTS".
 - HTTP layer: `MSXML2.ServerXMLHTTP.6.0` with explicit timeouts

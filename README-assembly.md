@@ -93,6 +93,12 @@ functionally identical in HTML/HTA — no impact on the app.
   with NB-0008 appearing twice because the register itself lists two companies;
   register sync keeps the first occurrence and logs the anomaly) — use it first
   if register sync ever returns unexpected results.
+- GCTS timeline import: open the Diagnostics pane, paste an absolute path to an
+  existing/older `data.json` (or a backup copy) and click **Import Timeline**.
+  Only GCTS numbers + dates are read; scopes/names/statuses from the imported
+  file are ignored. Dates are matched per NB number - existing dates in the
+  current data stay untouched, missing dates are added, and an NB whose GCTS
+  number is still 0 gets the latest known timeline value.
 - Column widths: drag the right edge of any column header to resize it, or
   double-click a header to auto-fit that column to its content. Widths persist
   in `config.json` as `"columnWidths": {"id": 60, "nb_shortname": 120,

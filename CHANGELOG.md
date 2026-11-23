@@ -58,6 +58,25 @@
 
 ### Bugfixes (from the V1.2.1 review)
 
+- Table frame size no longer flips between full-height and capped height on
+  every table re-render (row click, scan update): the height is now computed
+  from the container and log pane sizes and assigned idempotently, instead of
+  being alternately set and cleared (`clientHeight`-comparison oscillation).
+- Inactive NBs (no active scope) with an unknown/zero GCTS number are now
+  included in a full scan so their GCTS count is probed at least once instead
+  of remaining 0; they are skipped (and logged) only when their GCTS number is
+  already known.
+- New **Import Timeline** action (Diagnostics pane): reads an existing
+  `data.json` (older export or backup) and merges only the GCTS timeline data
+  (`nb_number_gcts_timeline`, alternate `nb_gcts_timeline` accepted) into the
+  current data - dates already present are untouched, missing dates are added.
+  Records are matched by NB number (digits-only, so `"NB-0001"` in an old file
+  matches `"0001"`). If `nb_number_gcts` in the current data is 0 and the
+  imported file has GCTS values, the latest timeline value fills the current
+  GCTS number; a timeline-less old file contributes a single snapshot dated
+  with the import date. Finish with a summary log line; unmatched records are
+  reported.
+
 - Table columns are now resizable: drag the right edge of any column header
   (cursor turns into a column-resize arrow) to set its width, or double-click a
   column header to auto-fit the column to its content. Widths are persisted in

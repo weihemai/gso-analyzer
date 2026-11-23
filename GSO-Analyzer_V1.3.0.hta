@@ -1533,7 +1533,7 @@
                 chip.appendChild(document.createTextNode(item.nb_status_agg ? STATUS_LABELS[item.nb_status_agg] : "none"));
                 td.appendChild(chip);
 
-                if (item.nb_active) {
+                if (item.nb_active || !(parseInt(item.nb_number_gcts, 10) > 0)) {
                     activeCount++;
                 }
 
@@ -2229,6 +2229,123 @@
             addTimelineEntry(nb, getDateStamp(), gctsValue);
         }
 
+        function digitsOnly(key) {
+            return String(key).replace(/\D/g, "");
+        }
+
+        function latestTimelineValue(nb) {
+            var timeline = nb.nb_number_gcts_timeline || {};
+            var bestKey = "";
+            var bestVal = 0;
+            var k, v;
+
+            for (k in timeline) {
+                if (timeline.hasOwnProperty(k)) {
+                    if (bestKey === "" || k > bestKey) {
+                        bestKey = k;
+                        v = parseInt(timeline[k], 10);
+                        bestVal = isNaN(v) ? 0 : v;
+                    }
+                }
+            }
+
+            return bestVal;
+        }
+
+        function importGctsTimeline() {
+            var path = trim(document.getElementById("importPath").value);
+
+            if (path === "") {
+                alert("Enter the path to the existing data.json first.");
+                return;
+            }
+
+            try {
+                var raw = parseJsonSafe(readTextFile(path));
+
+                if (!raw || typeof raw !== "object") {
+                    throw new Error("not a valid data.json structure");
+                }
+
+                var todayKey = getDateStamp();
+                var added = 0;
+                var matched = 0;
+                var unmatched = 0;
+                var gctsSet = 0;
+                var k, rec, oldTimeline, id, cur, dateKey, val, best;
+
+                for (k in raw) {
+                    if (!raw.hasOwnProperty(k)) {
+                        continue;
+                    }
+
+                    rec = raw[k];
+
+                    if (!rec || typeof rec !== "object") {
+                        continue;
+                    }
+
+                    id = digitsOnly(k);
+                    cur = NBs[id];
+
+                    if (id === "" || !cur) {
+                        unmatched++;
+                        continue;
+                    }
+
+                    matched++;
+
+                    oldTimeline = rec.nb_number_gcts_timeline || rec.nb_gcts_timeline || null;
+
+                    if (!cur.nb_number_gcts_timeline) {
+                        cur.nb_number_gcts_timeline = {};
+                    }
+
+                    if (oldTimeline && typeof oldTimeline === "object") {
+                        for (dateKey in oldTimeline) {
+                            if (oldTimeline.hasOwnProperty(dateKey) && /^\d{4}-\d{2}-\d{2}$/.test(dateKey)) {
+                                val = parseInt(oldTimeline[dateKey], 10);
+
+                                if (isNaN(val) || val < 0) {
+                                    continue;
+                                }
+
+                                if (typeof cur.nb_number_gcts_timeline[dateKey] === "undefined") {
+                                    cur.nb_number_gcts_timeline[dateKey] = val;
+                                    added++;
+                                }
+                            }
+                        }
+                    } else if (typeof cur.nb_number_gcts_timeline[todayKey] === "undefined" && parseInt(rec.nb_number_gcts, 10) > 0) {
+                        val = parseInt(rec.nb_number_gcts, 10);
+                        cur.nb_number_gcts_timeline[todayKey] = val;
+                        added++;
+                        log("Imported snapshot for " + id + " => " + val + " (dated " + todayKey + ", old file had no timeline).", "info");
+                    }
+
+                    if (!(parseInt(cur.nb_number_gcts, 10) > 0)) {
+                        best = latestTimelineValue(cur);
+
+                        if (best > 0) {
+                            cur.nb_number_gcts = best;
+                            gctsSet++;
+                        }
+                    }
+                }
+
+                saveData();
+                renderTable();
+
+                log("Timeline import finished: " + matched + " matched, " + unmatched + " unmatched, " + added + " date(s) added, " + gctsSet + " GCTS max filled from timeline.", "ok");
+
+                if (unmatched > 0) {
+                    log(unmatched + " record(s) in the imported file had no matching NB in the current data.", "warn");
+                }
+            } catch (e) {
+                log("Timeline import failed: " + e.message, "err");
+            }
+        }
+
         function startFullScan() {
             var ids = [];
             var skipped = [];
@@ -2242,7 +2359,7 @@
                 if (NBs.hasOwnProperty(k)) {
                     nb = NBs[k];
 
-                    if (hasActiveScope(nb)) {
+                    if (hasActiveScope(nb) || !(parseInt(nb.nb_number_gcts, 10) > 0)) {
                         ids.push(k);
                     } else {
                         skipped.push(k);
@@ -2251,12 +2368,12 @@
             }
 
             if (ids.length === 0) {
-                alert("No NB with an active (notified) scope to scan.");
+                alert("No NB to scan (no active scope and no NB with unknown GCTS).");
                 return;
             }
 
             if (skipped.length > 0) {
-                log("Skipping " + skipped.length + " NB(s) without active (notified) scopes: " + skipped.join(", "), "warn");
+                log("Skipping " + skipped.length + " inactive NB(s) with known GCTS (no active scope): " + skipped.join(", "), "warn");
             }
 
             ids.sort();
@@ -3260,12 +3377,11 @@
                 }
 
                 var max20RowsHeight = 36 + (20 * 30);
+                var reservedHeight = logSection.offsetHeight + 12;
+                var naturalHeight = mainList.clientHeight - reservedHeight;
+                var targetHeight = Math.min(max20RowsHeight, Math.max(160, naturalHeight));
 
-                if (tableContainer.clientHeight > max20RowsHeight) {
-                    tableContainer.style.height = max20RowsHeight + "px";
-                } else {
-                    tableContainer.style.height = "";
-                }
+                tableContainer.style.height = targetHeight + "px";
 
                 if (editPane) {
                     var rectPane = editPane.getBoundingClientRect ? editPane.getBoundingClientRect() : null;
@@ -3609,6 +3725,22 @@
                         <span class="fieldInput">
                             <button onclick="runDiagnostic()">Run Diagnostic</button>
                             <button onclick="dumpListHtml()">Dump List HTML</button>
+                        </span>
+                    </div>
+
+                    <div class="fieldRow">
+                        <span class="fieldLabel">Import</span>
+
+                        <span class="fieldInput">
+                            <input type="text" id="importPath">
+                        </span>
+                    </div>
+
+                    <div class="fieldRow">
+                        <span class="fieldLabel">&nbsp;</span>
+
+                        <span class="fieldInput">
+                            <button onclick="importGctsTimeline()">Import Timeline</button>
                         </span>
                     </div>
 

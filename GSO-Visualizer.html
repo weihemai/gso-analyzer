@@ -1,0 +1,1253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>GSO Visualizer v0.1.0</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+<style>
+  :root {
+    --bg: #0f1420; --panel: #171e2e; --panel2: #1d2637; --line: #2a3549;
+    --ink: #e8ecf4; --muted: #8b94a7; --accent: #5b9bd5; --ok: #57b26a;
+    --warn: #d9a441; --err: #d05b5b;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink);
+    font: 13px/1.45 "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  header { display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+    padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
+  header h1 { font-size: 16px; margin: 0 8px 0 0; }
+  header h1 small { color: var(--muted); font-weight: normal; }
+  label.ctl { color: var(--muted); }
+  select, input[type="text"] { background: var(--panel2); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 4px; padding: 3px 6px; }
+  select option { background: var(--panel2); color: var(--ink); }
+  button { background: var(--panel2); color: var(--ink); border: 1px solid var(--line);
+    border-radius: 4px; padding: 4px 10px; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.active { background: #2b3a55; border-color: var(--accent); }
+  input[type="file"] { color: var(--muted); }
+  a { color: var(--accent); }
+  nav { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 16px;
+    background: var(--panel); border-bottom: 1px solid var(--line); }
+  main { padding: 12px 16px; }
+  section.tab { display: none; }
+  section.tab.active { display: block; }
+  .banner { border: 1px solid var(--line); background: var(--panel); border-radius: 6px;
+    padding: 8px 12px; margin-bottom: 12px; color: var(--muted); }
+  .banner .warn { color: var(--warn); }
+  .banner b { color: var(--ink); }
+  .strip { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+  .kpi { flex: 1 1 170px; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 6px; padding: 8px 12px; }
+  .kpi .v { font-size: 20px; font-weight: 600; }
+  .kpi .l { color: var(--muted); font-size: 11px; text-transform: uppercase;
+    letter-spacing: .04em; }
+  .kpi .d { font-size: 11px; }
+  .d.up { color: var(--ok); } .d.down { color: var(--err); }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 6px;
+    padding: 10px 12px; margin-bottom: 14px; }
+  .card h2 { font-size: 13px; margin: 0 0 8px; color: var(--muted); font-weight: 600;
+    text-transform: uppercase; letter-spacing: .04em; }
+  .card .ctlrow { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 8px; }
+  .chart { width: 100%; height: 380px; }
+  .chart.tall { height: 460px; }
+  table { border-collapse: collapse; width: 100%; font-size: 12px; }
+  th, td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { color: var(--muted); cursor: pointer; user-select: none; position: sticky; top: 0;
+    background: var(--panel); }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tr:hover td { background: #1f2940; }
+  .chip { display: inline-block; border-radius: 3px; padding: 0 5px; margin: 0 2px 2px 0;
+    font-size: 10px; font-weight: 600; }
+  .chip.on { background: #24523a; color: #7fd39b; }
+  .chip.expired { background: #4a4a4a; color: #bbb; }
+  .chip.withdrawn { background: #5a2b2b; color: #e08a8a; }
+  .chip.suspended { background: #5a4a23; color: #e0c98a; }
+  .scroll { max-height: 480px; overflow: auto; }
+  .muted { color: var(--muted); }
+  .right { text-align: right; }
+  .drop { border: 2px dashed var(--line); border-radius: 8px; padding: 26px;
+    text-align: center; color: var(--muted); }
+  .drop.hot { border-color: var(--accent); color: var(--ink); }
+  select[multiple] { width: 100%; }
+  .cols { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-start; }
+  .cols > div { flex: 1 1 380px; }
+  #errbox { display: none; background: #4a2626; border: 1px solid var(--err);
+    border-radius: 6px; padding: 8px 12px; margin-bottom: 12px; color: #f1caca; }
+</style>
+</head>
+<body>
+<header>
+  <h1>GSO Visualizer <small>v0.1.0</small></h1>
+  <label class="ctl">data.json
+    <input type="file" id="fileInput" accept=".json,application/json" />
+  </label>
+  <label class="ctl">Period
+    <select id="fromSel"></select> – <select id="toSel"></select>
+  </label>
+  <label class="ctl" title="Interpolate linearly across snapshots that look like counting-rule changes rather than real certificate movements">
+    <input type="checkbox" id="exclChk" checked /> exclude anomalous snapshots
+  </label>
+  <span id="loadState" class="muted"></span>
+</header>
+<nav id="tabs">
+  <button data-tab="overview" class="active">Overview</button>
+  <button data-tab="snapshot">Snapshot Donut</button>
+  <button data-tab="compare">Compare</button>
+  <button data-tab="affiliation">By Affiliation</button>
+  <button data-tab="country">By Country</button>
+  <button data-tab="records">NB Records</button>
+</nav>
+<main>
+  <div id="errbox"></div>
+  <div id="welcome" class="drop">Load a <b>data.json</b> (GSO Analyzer V1.3.0 export) via the file picker above.
+    You can also drag &amp; drop a file anywhere on this page. If this page is served from a folder
+    containing <code>data.json</code>, it is picked up automatically.</div>
+  <div id="banner" class="banner" style="display:none"></div>
+
+  <section class="tab active" id="tab-overview">
+    <div class="strip" id="kpiStrip"></div>
+    <div class="card">
+      <h2>Market development — total live GCTS certificates</h2>
+      <div class="ctlrow">
+        <button id="ovTotal" class="active">Total</button>
+        <button id="ovAffil">Stacked by affiliation</button>
+        <button id="ovCountry">Stacked by country</button>
+        <label class="ctl"><input type="checkbox" id="ovYoY" /> show YoY % (secondary axis)</label>
+      </div>
+      <div id="ovChart" class="chart tall"></div>
+    </div>
+    <div class="card">
+      <h2>Affiliation groups — current snapshot</h2>
+      <div class="scroll"><table id="ovTable"></table></div>
+    </div>
+  </section>
+
+  <section class="tab" id="tab-snapshot">
+    <div class="card">
+      <h2>Donut at a point in time</h2>
+      <div class="ctlrow">
+        <label class="ctl">Month <input type="range" id="snapSlider" style="vertical-align:middle" /></label>
+        <b id="snapDate" style="min-width:70px"></b>
+        <label class="ctl"><input type="radio" name="snapMode" value="nbs" /> all NBs</label>
+        <label class="ctl"><input type="radio" name="snapMode" value="affiliation" checked /> by affiliation</label>
+        <label class="ctl"><input type="radio" name="snapMode" value="country" /> by country</label>
+        <span class="muted" id="snapTotal"></span>
+      </div>
+      <div class="cols">
+        <div id="snapChart" class="chart tall" style="flex:2 1 480px"></div>
+        <div class="scroll" style="flex:1 1 300px"><table id="snapTable"></table></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="tab" id="tab-compare">
+    <div class="card">
+      <h2>Compare NBs</h2>
+      <div class="ctlrow">
+        <input type="text" id="cmpFilter" placeholder="filter list…" style="width:220px" />
+        <span class="muted">Ctrl/Cmd-click to multi-select</span>
+        <button id="cmpClear">clear selection</button>
+      </div>
+      <div class="cols">
+        <div style="flex:0 0 300px"><select id="cmpSel" multiple size="14"></select></div>
+        <div id="cmpChart" class="chart tall" style="flex:3 1 480px"></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>KPIs for selected NBs (within period)</h2>
+      <div class="scroll"><table id="cmpTable"></table></div>
+    </div>
+  </section>
+
+  <section class="tab" id="tab-affiliation">
+    <div class="card">
+      <h2>By affiliation — stacked composition over time</h2>
+      <div class="ctlrow">
+        <label class="ctl"><input type="checkbox" id="affIndep" /> include Independent</label>
+        <label class="ctl"><input type="checkbox" id="affGov" /> include Government</label>
+        <button id="affCsv">export CSV</button>
+      </div>
+      <div id="affChart" class="chart tall"></div>
+    </div>
+    <div class="card">
+      <h2>Affiliation KPIs&nbsp;<span class="muted">(KPIs from interpolated monthly series; GCTS/mo shown for the active 12-month window)</span></h2>
+      <div class="scroll"><table id="affTable"></table></div>
+    </div>
+  </section>
+
+  <section class="tab" id="tab-country">
+    <div class="card">
+      <h2>By country of the NB — stacked composition over time</h2>
+      <div class="ctlrow"><button id="ctyCsv">export CSV</button></div>
+      <div id="ctyChart" class="chart tall"></div>
+    </div>
+    <div class="card">
+      <h2>Country KPIs</h2>
+      <div class="scroll"><table id="ctyTable"></table></div>
+    </div>
+  </section>
+
+  <section class="tab" id="tab-records">
+    <div class="card">
+      <h2>All notified bodies</h2>
+      <div class="ctlrow">
+        <input type="text" id="recSearch" placeholder="search name / id…" style="width:220px" />
+        <select id="recAffil"></select>
+        <select id="recCountry"></select>
+        <select id="recScope">
+          <option value="">scope: any</option>
+          <option value="toys">Toys</option><option value="lv">LV</option>
+          <option value="wer">WER</option><option value="sc">E-Scooters</option>
+          <option value="ga">Gas Appliances</option><option value="mslv">MS-LV</option>
+        </select>
+        <button id="recCsv">export CSV</button>
+      </div>
+      <div class="scroll"><table id="recTable"></table></div>
+    </div>
+  </section>
+</main>
+<footer class="muted" style="padding:8px 16px">
+  Master data: <a href="https://www.gso.org.sa/nb/notified-body-list">GSO Notified Body register</a>.
+  Series are linearly interpolated between GSO register snapshots (irregular, non-equidistant);
+  months before an NB's first snapshot count as 0. Anomalous snapshots (counting-rule changes,
+  e.g. 2024-10-28) can be excluded via the header toggle.
+</footer>
+
+<script>
+/*__ENGINE_START__*/
+/* Pure data engine — parsed by tests/test-engine.mjs, shared by the UI. */
+"use strict";
+
+var SCOPES = [
+  { key: "toys", label: "Toys" },
+  { key: "lv", label: "LV" },
+  { key: "wer", label: "WER" },
+  { key: "sc", label: "SC" },
+  { key: "ga", label: "GA" },
+  { key: "mslv", label: "MS-LV" }
+];
+
+var AFFILIATION_RULES = [
+  { group: "Bureau Veritas", words: ["BUREAU VERITAS"] },
+  { group: "TUV Rheinland", words: ["TUV RHEINLAND", "T\u00dcV RHEINLAND"] },
+  { group: "TUV SUD", words: ["TUV SUD", "TUV SUED", "T\u00dcV S\u00dcD"] },
+  { group: "TUV Austria", words: ["TUV AUSTRIA", "T\u00dcV AUSTRIA"] },
+  { group: "TUV NORD", words: ["TUV NORD", "T\u00dcV NORD"] },
+  { group: "TUV", words: ["TUV", "T\u00dcV"] },
+  { group: "DEKRA", words: ["DEKRA"] },
+  { group: "Nemko", words: ["NEMKO"] },
+  { group: "Intertek", words: ["INTERTEK"] },
+  { group: "SGS", words: ["SGS"] },
+  { group: "UL", words: ["UL", "UNDERWRITERS"] },
+  { group: "Cotecna", words: ["COTECNA"] },
+  { group: "Eurofins", words: ["EUROFINS"] },
+  { group: "BSI", words: ["BSI", "BRITISH STANDARDS"] },
+  { group: "IMQ", words: ["IMQ"] },
+  { group: "Government", words: ["MINISTRY", "GOVERNMENT", "AUTHORITY"] }
+];
+
+function stripBom(text) {
+  return (typeof text === "string" && text.charCodeAt(0) === 0xFEFF) ? text.slice(1) : String(text);
+}
+
+function parseUTCDate(s) {
+  var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(s));
+  if (!m) return null;
+  var d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function fmtUTCDate(d) {
+  function p(n) { return (n < 10 ? "0" : "") + n; }
+  return d.getUTCFullYear() + "-" + p(d.getUTCMonth() + 1) + "-" + p(d.getUTCDate());
+}
+
+function fmtMonth(d) {
+  function p(n) { return (n < 10 ? "0" : "") + n; }
+  return d.getUTCFullYear() + "-" + p(d.getUTCMonth() + 1);
+}
+
+/* Canonical affiliation: case/space-insensitive identity; the most common
+   original spelling becomes the display label (fixes e.g. COTECNA/Cotecna). */
+var affRegistry = {};
+function normalizeAffiliation(raw) {
+  var a = String(raw == null ? "" : raw).replace(/\s+/g, " ").trim();
+  if (!a) a = "Independent";
+  var key = a.toUpperCase();
+  if (!affRegistry[key]) affRegistry[key] = { counts: {} };
+  var entry = affRegistry[key];
+  entry.counts[a] = (entry.counts[a] || 0) + 1;
+  var best = null, bestN = -1;
+  Object.keys(entry.counts).forEach(function (sp) {
+    var n = entry.counts[sp];
+    if (n > bestN || (n === bestN && sp.length < best.length)) { best = sp; bestN = n; }
+  });
+  return best;
+}
+function affCasingConflicts() {
+  var out = [];
+  Object.keys(affRegistry).forEach(function (k) {
+    var spellings = Object.keys(affRegistry[k].counts);
+    if (spellings.length > 1) out.push({ display: affRegistry[k].counts ? spellings.sort()[0] : k, spellings: spellings });
+  });
+  return out;
+}
+
+function guessAffiliation(fullname) {
+  var up = " " + String(fullname || "").toUpperCase().replace(/\s+/g, " ").replace(/[.,]/g, " ").replace(/\s+/g, " ") + " ";
+  var i, j;
+  for (i = 0; i < AFFILIATION_RULES.length; i++) {
+    for (j = 0; j < AFFILIATION_RULES[i].words.length; j++) {
+      if (up.indexOf(" " + AFFILIATION_RULES[i].words[j] + " ") >= 0) {
+        return AFFILIATION_RULES[i].group;
+      }
+    }
+  }
+  return "Independent";
+}
+
+function parseData(text) {
+  affRegistry = {};
+  var json = JSON.parse(stripBom(text));
+  if (typeof json !== "object" || json === null || Array.isArray(json)) {
+    throw new Error("not a valid data.json structure (expected NB map)");
+  }
+  var nbs = [];
+  Object.keys(json).sort().forEach(function (id) {
+    var o = json[id];
+    if (!o || typeof o !== "object") return;
+    var tlRaw = o.nb_number_gcts_timeline || {};
+    var pts = Object.keys(tlRaw)
+      .map(function (d) { return { t: parseUTCDate(d), v: Number(tlRaw[d]) || 0 }; })
+      .filter(function (p) { return p.t !== null && isFinite(p.v); })
+      .sort(function (a, b) { return a.t - b.t; });
+    var merged = [];
+    pts.forEach(function (p) {
+      var last = merged[merged.length - 1];
+      if (last && last.t.getTime() === p.t.getTime()) merged[merged.length - 1] = p;
+      else merged.push(p);
+    });
+    var affRaw = String(o.nb_affiliation == null ? "" : o.nb_affiliation).trim();
+    nbs.push({
+      id: id,
+      shortname: o.nb_shortname || ("NB-" + id),
+      fullname: o.nb_fullname || "",
+      country: String(o.nb_country || "").toUpperCase(),
+      affiliation: normalizeAffiliation(affRaw || guessAffiliation(o.nb_fullname)),
+      affiliationSource: affRaw ? "field" : "guess",
+      gcts: Number(o.nb_number_gcts) || 0,
+      points: merged,
+      prevNames: Array.isArray(o.nb_previous_names) ? o.nb_previous_names : [],
+      scopes: SCOPES.map(function (s) {
+        return {
+          key: s.key, label: s.label,
+          on: !!o["nb_scope_" + s.key],
+          status: String(o["nb_status_" + s.key] || "").toLowerCase()
+        };
+      })
+    });
+  });
+  if (!nbs.length) throw new Error("no NB records found in data.json");
+  return nbs;
+}
+
+/* An isolated one-snapshot jump that reverses at the next snapshot is treated
+   as a counting-rule artifact (e.g. the platform-wide 2024-10-28 spike), not a
+   real certificate movement. */
+function detectAnomalies(points) {
+  var flags = new Set();
+  if (!points || points.length < 3) return flags;
+  for (var i = 1; i < points.length - 1; i++) {
+    var p = points[i - 1].v, c = points[i].v, n = points[i + 1].v;
+    if (c > 1.5 * Math.max(p, n) && p > 0) flags.add(i);
+    else if (c > 1.5 * n && p === 0 && n > 0 && c > 100) flags.add(i);
+    else if (p > 0 && n > 0 && c < 0.65 * Math.min(p, n)) flags.add(i);
+  }
+  return flags;
+}
+
+/* Piecewise-linear interpolation between snapshots; 0 strictly before the
+   first snapshot; last value held after the final snapshot. */
+function interpValue(points, t) {
+  if (!points.length) return 0;
+  if (t.getTime() < points[0].t.getTime()) return 0;
+  var last = points[points.length - 1];
+  if (t.getTime() >= last.t.getTime()) return last.v;
+  var lo = 0, hi = points.length - 1, mid;
+  while (hi - lo > 1) {
+    mid = (lo + hi) >> 1;
+    if (points[mid].t < t) lo = mid; else hi = mid;
+  }
+  var p0 = points[lo], p1 = points[hi];
+  if (p1.t.getTime() === p0.t.getTime()) return p0.v;
+  var frac = (t.getTime() - p0.t.getTime()) / (p1.t.getTime() - p0.t.getTime());
+  return p0.v + (p1.v - p0.v) * frac;
+}
+
+/* Monthly grid (UTC month ends); minMonth/maxMonth as "YYYY-MM". */
+function monthEndGrid(minMonth, maxMonth) {
+  var grid = [];
+  if (!/^\d{4}-\d{2}$/.test(String(minMonth)) || !/^\d{4}-\d{2}$/.test(String(maxMonth))) return grid;
+  var y = +minMonth.slice(0, 4), m = +minMonth.slice(5, 7);
+  var y2 = +maxMonth.slice(0, 4), m2 = +maxMonth.slice(5, 7);
+  while (y < y2 || (y === y2 && m <= m2)) {
+    grid.push(new Date(Date.UTC(y, m, 0)));   // day 0 of next month = month end
+    m++; if (m > 12) { m = 1; y++; }
+  }
+  return grid;
+}
+
+/* Per-NB interpolated series on the grid + global anomaly stats. */
+function buildSeries(nbs, grid, excludeAnomalies) {
+  var stats = { flaggedPoints: [], flaggedNBs: 0, fallbackAffiliation: 0 };
+  nbs.forEach(function (nb) {
+    nb.flags = detectAnomalies(nb.points);
+    if (nb.flags.size) {
+      stats.flaggedNBs++;
+      nb.flags.forEach(function (i) {
+        stats.flaggedPoints.push({
+          id: nb.id, shortname: nb.shortname,
+          date: fmtUTCDate(nb.points[i].t), value: nb.points[i].v
+        });
+      });
+    }
+    if (nb.affiliationSource === "guess") stats.fallbackAffiliation++;
+    var pts = nb.points;
+    if (excludeAnomalies && nb.flags.size) {
+      pts = nb.points.filter(function (p, i) { return !nb.flags.has(i); });
+    }
+    nb.series = new Array(grid.length);
+    for (var i = 0; i < grid.length; i++) nb.series[i] = interpValue(pts, grid[i]);
+  });
+  return stats;
+}
+
+function aggregateBy(nbs, keyFn) {
+  var out = {}, i;
+  nbs.forEach(function (nb) {
+    var g = keyFn(nb);
+    if (!out[g]) out[g] = new Array(nb.series.length).fill(0);
+    for (i = 0; i < nb.series.length; i++) out[g][i] += nb.series[i];
+  });
+  return out;
+}
+
+function sumSeries(map) {
+  var len = 0;
+  Object.keys(map).forEach(function (k) { if (map[k].length > len) len = map[k].length; });
+  var out = new Array(len).fill(0);
+  Object.keys(map).forEach(function (g) {
+    for (var i = 0; i < map[g].length; i++) out[i] += map[g][i];
+  });
+  return out;
+}
+
+var ENGINE = {
+  SCOPES: SCOPES,
+  AFFILIATION_RULES: AFFILIATION_RULES,
+  stripBom: stripBom,
+  parseUTCDate: parseUTCDate,
+  fmtUTCDate: fmtUTCDate,
+  fmtMonth: fmtMonth,
+  parseData: parseData,
+  normalizeAffiliation: normalizeAffiliation,
+  affCasingConflicts: affCasingConflicts,
+  guessAffiliation: guessAffiliation,
+  detectAnomalies: detectAnomalies,
+  interpValue: interpValue,
+  monthEndGrid: monthEndGrid,
+  buildSeries: buildSeries,
+  aggregateBy: aggregateBy,
+  sumSeries: sumSeries
+};
+/*__ENGINE_END__*/
+
+/* ===================== UI layer ===================== */
+
+var ST = { nbs: [], grid: [], labels: [] };
+var charts = {};
+
+function $(id) { return document.getElementById(id); }
+function el(tag, cls, text) {
+  var e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
+function fmt(n) { return Math.round(n).toLocaleString("en-US"); }
+function fmt1(n) { return n.toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 }); }
+function pct(n) { return (n * 100).toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + "%"; }
+function esc(s) { return String(s).replace(/[&<>"]/g, function (c) {
+  return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; });
+}
+function palette(n) {
+  var base = ["#5b9bd5", "#ed7d31", "#a5a5a5", "#ffc000", "#70ad47", "#4472c4",
+    "#c0504d", "#8064a2", "#9bbb59", "#e0908f", "#2b6464", "#7c5a2e",
+    "#957ad0", "#b07aa1", "#646e10", "#264478"];
+  var out = [];
+  for (var i = 0; i < n; i++) out.push(base[i % base.length]);
+  return out;
+}
+function chart(id) {
+  if (typeof echarts === "undefined") return null;
+  if (!charts[id]) charts[id] = echarts.init($(id), null, { renderer: "canvas" });
+  return charts[id];
+}
+function fail(msg) {
+  var b = $("errbox");
+  b.style.display = "block";
+  b.textContent = msg;
+}
+function clearFail() { var b = $("errbox"); b.style.display = "none"; b.textContent = ""; }
+function toast(msg) { $("loadState").textContent = msg; }
+
+/* ---------- data load / rebuild ---------- */
+
+function loadData(text, sourceName) {
+  clearFail();
+  try {
+    ST.nbs = ENGINE.parseData(text);
+    rebuild();
+    $("welcome").style.display = "none";
+    $("banner").style.display = "block";
+    toast("loaded " + ST.nbs.length + " NBs from " + (sourceName || "data.json") +
+      (ST.stats && ST.stats.fallbackAffiliation
+        ? " (" + ST.stats.fallbackAffiliation + " affiliation(s) guessed)" : ""));
+  } catch (e) {
+    fail("Failed to load data.json: " + e.message);
+    toast("");
+  }
+  drawActiveTab();
+}
+
+function rebuild() {
+  var tMin = null, tMax = null;
+  ST.nbs.forEach(function (nb) {
+    nb.points.forEach(function (p) {
+      if (!tMin || p.t < tMin) tMin = p.t;
+      if (!tMax || p.t > tMax) tMax = p.t;
+    });
+  });
+  if (!tMin) throw new Error("no timeline data in file");
+  ST.grid = ENGINE.monthEndGrid(ENGINE.fmtMonth(tMin), ENGINE.fmtMonth(tMax));
+  ST.labels = ST.grid.map(ENGINE.fmtMonth);
+  applySeries();
+  fillControls();
+}
+
+function applySeries() {
+  ST.stats = ENGINE.buildSeries(ST.nbs, ST.grid, $("exclChk").checked);
+}
+
+function fillControls() {
+  var fromSel = $("fromSel"), toSel = $("toSel");
+  fromSel.innerHTML = ""; toSel.innerHTML = "";
+  ST.labels.forEach(function (lab, i) {
+    var o1 = el("option", null, lab); o1.value = i; fromSel.appendChild(o1);
+    var o2 = el("option", null, lab); o2.value = i; toSel.appendChild(o2);
+  });
+  fromSel.onchange = toSel.onchange = function () { periodChanged(); };
+  fromSel.selectedIndex = 0;
+  toSel.selectedIndex = ST.labels.length - 1;
+
+  var slider = $("snapSlider");
+  slider.min = 0; slider.max = Math.max(0, ST.labels.length - 1); slider.step = 1;
+  slider.value = ST.labels.length - 1;
+  slider.oninput = drawSnapshot;
+
+  var cmpSel = $("cmpSel");
+  cmpSel.innerHTML = "";
+  var groups = {};
+  ST.nbs.forEach(function (nb) {
+    (groups[nb.affiliation] = groups[nb.affiliation] || []).push(nb);
+  });
+  Object.keys(groups).sort().forEach(function (g) {
+    var og = el("optgroup"); og.label = g;
+    groups[g].sort(function (a, b) { return b.gcts - a.gcts; }).forEach(function (nb) {
+      var o = el("option", null, nb.shortname + "  (" + fmt(nb.gcts) + ")");
+      o.value = nb.id; og.appendChild(o);
+    });
+    cmpSel.appendChild(og);
+  });
+  cmpSel.onchange = drawCompare;
+
+  var affs = unique(ST.nbs.map(function (n) { return n.affiliation; })).sort();
+  var cty = unique(ST.nbs.map(function (n) { return n.country; })).filter(Boolean).sort();
+  var items = affs.map(function (g) { return { v: g, t: g }; });
+  var items2 = cty.map(function (g) { return { v: g, t: g }; });
+  fillSelect($("recAffil"), items, "affiliation: any");
+  fillSelect($("recCountry"), items2, "country: any");
+}
+
+function fillSelect(sel, items, anyLabel) {
+  sel.innerHTML = "";
+  var o = el("option", null, anyLabel); o.value = ""; sel.appendChild(o);
+  items.forEach(function (it) {
+    var a = el("option", null, it.t); a.value = it.v; sel.appendChild(a);
+  });
+}
+
+function unique(arr) {
+  var seen = {}, out = [];
+  arr.forEach(function (x) { if (!seen[x]) { seen[x] = 1; out.push(x); } });
+  return out;
+}
+
+function periodChanged() {
+  var i0 = +$("fromSel").value, i1 = +$("toSel").value;
+  if (i0 > i1) { var t = i0; i0 = i1; i1 = t; $("fromSel").value = i0; $("toSel").value = i1; }
+  drawActiveTab();
+}
+
+function periodRange() {
+  var i0 = +$("fromSel").value || 0;
+  var i1 = ST.labels.length - 1;
+  if ($("toSel").value !== "") i1 = +$("toSel").value;
+  if (i0 > i1) { var t = i0; i0 = i1; i1 = t; }
+  return { i0: i0, i1: i1 };
+}
+
+function renderBanner() {
+  var st = ST.stats || { flaggedPoints: [], fallbackAffiliation: 0 };
+  var flaggedN = st.flaggedPoints.length;
+  var conflicts = ENGINE.affCasingConflicts();
+  var nAff = unique(ST.nbs.map(function (n) { return n.affiliation; })).length;
+  var html = "Loaded <b>" + ST.nbs.length + "</b> NBs · " + nAff + " affiliations · timeline " +
+    ST.labels[0] + " → " + ST.labels[ST.labels.length - 1] +
+    " (" + ST.labels.length + " monthly points, linearly interpolated)";
+  if (flaggedN) {
+    var sample = st.flaggedPoints.slice(0, 3).map(function (p) {
+      return p.shortname + "@" + p.date;
+    }).join(", ");
+    html += " · <span class='warn'>⚠ " + flaggedN + " anomalous snapshot(s) in " +
+      st.flaggedNBs + " NBs — currently " + ($("exclChk").checked ? "excluded" : "<b>NOT excluded</b>") +
+      " — e.g. " + esc(sample) + "</span>";
+  }
+  if (conflicts.length) {
+    html += " · <span class='warn'>affiliation spellings merged: " + conflicts.map(function (c) {
+      return esc(c.spellings.join(" / "));
+    }).join("; ") + "</span>";
+  }
+  if (st.fallbackAffiliation) html += " · <span class='warn'>" + st.fallbackAffiliation +
+    " NB(s) without nb_affiliation (guessed from fullname)</span>";
+  $("banner").innerHTML = html;
+  $("banner").style.display = "block";
+}
+
+/* ---------- helpers ---------- */
+
+function sumAllNB(i) {
+  var s = 0;
+  ST.nbs.forEach(function (nb) { s += nb.series[i] || 0; });
+  return s;
+}
+function formatThousand(v) { return v >= 1000 ? Math.round(v / 100) / 10 + "k" : v; }
+function subset(idx0, idx1) {
+  return {
+    labels: ST.labels.slice(idx0, idx1 + 1),
+    of: function (arr) { return arr.slice(idx0, idx1 + 1); }
+  };
+}
+
+/* ---------- overview ---------- */
+
+function drawOverview() {
+  drawKpiStrip();
+  var ch = chart("ovChart");
+  if (!ch) return;
+  var modeBtn = document.querySelector("#tab-overview .ctlrow button.active");
+  var mode = modeBtn ? modeBtn.id : "ovTotal";
+  var pr = periodRange(), sub = subset(pr.i0, pr.i1);
+  var seriesSet = [];
+  if (mode === "ovTotal") {
+    var total = ST.nbs.reduce(function (acc, nb) {
+      for (var i = 0; i < acc.length; i++) acc[i] += nb.series[pr.i0 + i];
+      return acc;
+    }, new Array(sub.labels.length).fill(0));
+    seriesSet = [{ name: "Total live GCTS", data: total, stack: null }];
+  } else {
+    var byKey = ENGINE.aggregateBy(ST.nbs, mode === "ovAffil"
+      ? function (n) { return n.affiliation; }
+      : function (n) { return n.country || "?"; });
+    var groups = Object.keys(byKey).sort(function (a, b) {
+      return byKey[b][byKey[b].length - 1] - byKey[a][byKey[a].length - 1];
+    });
+    seriesSet = groups.map(function (g) {
+      return { name: g, data: sub.of(byKey[g]), stack: "total" };
+    });
+  }
+  var s = seriesSet.map(function (ser) {
+    return {
+      name: ser.name, type: "line", data: ser.data.map(function (v) { return Math.round(v * 10) / 10; }),
+      symbol: "none", stack: ser.stack,
+      areaStyle: ser.stack ? { opacity: 0.85 } : { opacity: 0.15 },
+      lineStyle: { width: ser.stack ? 1 : 2.5 },
+      emphasis: { focus: "series" }
+    };
+  });
+  if ($("ovYoY").checked && ST.labels.length > 12) {
+    var totSeries = mode === "ovTotal"
+      ? seriesSet[0].data
+      : sub.of(ENGINE.sumSeries(ENGINE.aggregateBy(ST.nbs, function (n) { return n.affiliation; })));
+    var yoy = sub.labels.map(function (_, i) {
+      var jNow = pr.i0 + i, jPast = jNow - 12;
+      if (jPast < 0) return null;
+      var past = 0;
+      ST.nbs.forEach(function (nb) { past += nb.series[jPast]; });
+      return past > 0 ? (totSeries[i] - past) / past * 100 : null;
+    });
+    s.push({
+      name: "YoY %", type: "line", data: yoy, yAxisIndex: 1, symbol: "none",
+      lineStyle: { type: "dashed", width: 1.5 }, color: "#d9a441", connectNulls: false
+    });
+  }
+  ch.setOption({
+    backgroundColor: "transparent",
+    tooltip: { trigger: "axis",
+      valueFormatter: function (v) { return v == null ? "–" : fmt(v); } },
+    legend: { textStyle: { color: "#8b94a7" }, type: "scroll", pageTextStyle: { color: "#8b94a7" } },
+    grid: { left: 70, right: 60, top: 40, bottom: 30 },
+    xAxis: { type: "category", data: sub.labels, axisLabel: { color: "#8b94a7" },
+      axisLine: { lineStyle: { color: "#2a3549" } } },
+    yAxis: [
+      { type: "value", axisLabel: { color: "#8b94a7", formatter: formatThousand },
+        splitLine: { lineStyle: { color: "#1d2637" } } },
+      { type: "value", axisLabel: { color: "#d9a441", formatter: "{value}%" }, splitLine: { show: false } }
+    ],
+    series: s,
+    color: palette(Math.max(seriesSet.length, 1))
+  }, { notMerge: true });
+  drawOvTable();
+}
+
+function drawKpiStrip() {
+  var iLast = ST.labels.length - 1;
+  var iYear = Math.max(0, iLast - 12);
+  var tot = sumAllNB(iLast), totY = sumAllNB(iYear);
+  var d = tot - totY;
+  var active = ST.nbs.filter(function (n) {
+    return n.scopes.some(function (s) { return s.on && s.status === "notified"; });
+  }).length;
+  var strip = $("kpiStrip");
+  strip.innerHTML = "";
+  add("Live GCTS", fmt(tot), (d >= 0 ? "▲" : "▼"), d >= 0 ? "up" : "down",
+      fmt(Math.abs(d)) + " / 12m · " + (totY ? pct(d / totY) : "–") + " YoY");
+  add("GCTS / month", fmt1(d / 12), "", "up", "net average, last 12m");
+  add("GCTS / year", (d >= 0 ? "+" : "") + fmt(d), "", d >= 0 ? "up" : "down", "net change, last 12m");
+  add("Active NBs", active, "", "up", "of " + ST.nbs.length + " records (scope notified)");
+  add("Data window", ST.labels[0] + " → " + ST.labels[iLast], "", "up",
+      ST.grid.length + " monthly points");
+  function add(label, val, arrow, cls, subText) {
+    var k = el("div", "kpi");
+    k.appendChild(el("div", "l", label));
+    var v = el("div", "v", val);
+    if (arrow) v.appendChild(el("span", "d " + cls, " " + arrow));
+    k.appendChild(v);
+    k.appendChild(el("div", "d muted", subText));
+    strip.appendChild(k);
+  }
+}
+
+function drawOvTable() {
+  var iLast = ST.labels.length - 1;
+  var iYear = Math.max(0, iLast - 12);
+  var groups = ENGINE.aggregateBy(ST.nbs, function (n) { return n.affiliation; });
+  var rows = Object.keys(groups).map(function (g) {
+    var now = groups[g][iLast], yearAgo = groups[g][iYear];
+    return {
+      g: g,
+      nbs: ST.nbs.filter(function (n) { return n.affiliation === g; }).length,
+      now: now, d12: now - yearAgo,
+      yoy: yearAgo > 0 ? (now - yearAgo) / yearAgo : null,
+      mo: (now - yearAgo) / 12
+    };
+  }).sort(function (a, b) { return b.now - a.now; });
+  var tot = rows.reduce(function (a, r) { return a + r.now; }, 0);
+  var t = $("ovTable");
+  t.innerHTML = "<thead><tr><th>Affiliation</th><th class='num'>NBs</th>" +
+    "<th class='num'>GCTS now</th><th class='num'>Δ 12m</th><th class='num'>YoY %</th>" +
+    "<th class='num'>GCTS/mo</th><th class='num'>share</th></tr></thead>";
+  var tb = el("tbody");
+  rows.forEach(function (r) {
+    var tr = el("tr");
+    tr.appendChild(el("td", null, r.g));
+    tr.appendChild(el("td", "num", r.nbs));
+    tr.appendChild(el("td", "num", fmt(r.now)));
+    tr.appendChild(el("td", "num " + (r.d12 >= 0 ? "up" : "down"), (r.d12 >= 0 ? "+" : "") + fmt(r.d12)));
+    tr.appendChild(el("td", "num", r.yoy == null ? "–" : pct(r.yoy)));
+    tr.appendChild(el("td", "num", fmt1(r.mo)));
+    tr.appendChild(el("td", "num", pct(tot ? r.now / tot : 0)));
+    tb.appendChild(tr);
+  });
+  t.appendChild(tb);
+}
+
+/* ---------- snapshot donut ---------- */
+
+function drawSnapshot() {
+  var ch = chart("snapChart");
+  if (!ch || !ST.labels.length) return;
+  var idx = +$("snapSlider").value || 0;
+  $("snapDate").textContent = ST.labels[idx];
+  var mode = document.querySelector('input[name="snapMode"]:checked').value;
+  var keyFn, title;
+  if (mode === "nbs") { keyFn = function (n) { return n.shortname; }; title = "NB"; }
+  else if (mode === "affiliation") { keyFn = function (n) { return n.affiliation; }; title = "Affiliation"; }
+  else { keyFn = function (n) { return n.country || "?"; }; title = "Country"; }
+
+  var vals = {};
+  ST.nbs.forEach(function (nb) {
+    var v = Math.round(nb.series[idx] || 0);
+    if (v <= 0) return;
+    vals[keyFn(nb)] = (vals[keyFn(nb)] || 0) + v;
+  });
+  var entries = Object.keys(vals).map(function (k) { return { name: k, value: vals[k] }; })
+    .sort(function (a, b) { return b.value - a.value; });
+  var total = entries.reduce(function (a, e) { return a + e.value; }, 0);
+  var maxSlices = mode === "nbs" ? 12 : 16;
+  var top = entries.slice(0, maxSlices);
+  if (entries.length > maxSlices) {
+    top.push({
+      name: "Others (" + (entries.length - maxSlices) + ")",
+      value: entries.slice(maxSlices).reduce(function (a, e) { return a + e.value; }, 0)
+    });
+  }
+  $("snapTotal").textContent = "total " + fmt(total) + " GCTS · " + entries.length + " " + title.toLowerCase() + "(s) with certificates";
+
+  ch.setOption({
+    backgroundColor: "transparent",
+    tooltip: { trigger: "item",
+      formatter: function (p) { return esc(p.name) + "<br/>" + fmt(p.value) + " GCTS (" + p.percent + "%)"; } },
+    legend: { type: "scroll", orient: "vertical", right: 5, top: 10, bottom: 10,
+      textStyle: { color: "#8b94a7" }, pageTextStyle: { color: "#8b94a7" } },
+    series: [{
+      type: "pie", radius: ["42%", "68%"], center: ["38%", "50%"],
+      data: top, label: { show: false },
+      itemStyle: { borderColor: "#0f1420", borderWidth: 1 }
+    }],
+    graphic: [{
+      type: "text", left: "38%", top: "48%",
+      style: { text: fmt(total), textAlign: "center", fill: "#e8ecf4",
+        fontSize: 16, fontWeight: "bold" }
+    }, {
+      type: "text", left: "38%", top: "55%",
+      style: { text: ST.labels[idx], textAlign: "center", fill: "#8b94a7", fontSize: 11 }
+    }],
+    color: palette(Math.max(top.length, 1))
+  }, { notMerge: true });
+
+  var t = $("snapTable");
+  t.innerHTML = "<thead><tr><th>" + esc(title) + "</th><th class='num'>GCTS</th><th class='num'>share</th></tr></thead>";
+  var tb = el("tbody");
+  entries.forEach(function (e) {
+    var tr = el("tr");
+    tr.appendChild(el("td", null, e.name));
+    tr.appendChild(el("td", "num", fmt(e.value)));
+    tr.appendChild(el("td", "num", pct(total ? e.value / total : 0)));
+    tb.appendChild(tr);
+  });
+  t.appendChild(tb);
+}
+
+/* ---------- compare ---------- */
+
+function drawCompare() {
+  var ch = chart("cmpChart");
+  if (!ch || !ST.labels.length) return;
+  var sel = Array.prototype.slice.call($("cmpSel").selectedOptions)
+    .map(function (o) { return o.value; });
+  var pr = periodRange(), sub = subset(pr.i0, pr.i1);
+  var selNBs = ST.nbs.filter(function (n) { return sel.indexOf(n.id) >= 0; });
+  var series = selNBs.map(function (nb) {
+    return { nb: nb, data: sub.of(nb.series).map(function (v) { return Math.round(v * 10) / 10; }) };
+  });
+  ch.setOption({
+    backgroundColor: "transparent",
+    tooltip: { trigger: "axis", valueFormatter: function (v) { return v == null ? "–" : fmt(v); } },
+    legend: { textStyle: { color: "#8b94a7" }, type: "scroll" },
+    grid: { left: 70, right: 20, top: 40, bottom: 30 },
+    xAxis: { type: "category", data: sub.labels, axisLabel: { color: "#8b94a7" },
+      axisLine: { lineStyle: { color: "#2a3549" } } },
+    yAxis: { type: "value", axisLabel: { color: "#8b94a7", formatter: formatThousand },
+      splitLine: { lineStyle: { color: "#1d2637" } } },
+    series: series.map(function (s) {
+      return {
+        name: s.nb.shortname, type: "line", data: s.data,
+        symbol: "circle", symbolSize: 4, lineStyle: { width: 2 },
+        emphasis: { focus: "series" }
+      };
+    }),
+    color: palette(Math.max(series.length, 1))
+  }, { notMerge: true });
+
+  var t = $("cmpTable");
+  t.innerHTML = "<thead><tr><th>NB</th><th>Affiliation</th><th>Country</th>" +
+    "<th class='num'>start</th><th class='num'>end</th><th class='num'>Δ</th>" +
+    "<th class='num'>GCTS/mo</th><th class='num'>CAGR</th>" +
+    "<th class='num'>share end</th><th>first snapshot</th></tr></thead>";
+  var tb = el("tbody");
+  var totalEnd = 0;
+  selNBs.forEach(function (nb) { totalEnd += nb.series[pr.i1] || 0; });
+  var months = pr.i1 - pr.i0;
+  series.sort(function (a, b) {
+    return (b.data[b.data.length - 1] || 0) - (a.data[a.data.length - 1] || 0);
+  }).forEach(function (s) {
+    var nb = s.nb;
+    var v0 = nb.series[pr.i0] || 0, v1 = nb.series[pr.i1] || 0;
+    var years = months / 12;
+    var cagr = (years > 0 && v0 > 0) ? Math.pow(v1 / v0, 1 / years) - 1 : null;
+    var tr = el("tr");
+    tr.appendChild(el("td", null, nb.shortname));
+    tr.appendChild(el("td", null, nb.affiliation));
+    tr.appendChild(el("td", null, nb.country));
+    tr.appendChild(el("td", "num", fmt(v0)));
+    tr.appendChild(el("td", "num", fmt(v1)));
+    tr.appendChild(el("td", "num " + (v1 - v0 >= 0 ? "up" : "down"), (v1 >= v0 ? "+" : "") + fmt(v1 - v0)));
+    tr.appendChild(el("td", "num", months ? fmt1((v1 - v0) / months) : "–"));
+    tr.appendChild(el("td", "num", cagr == null ? "–" : pct(cagr)));
+    tr.appendChild(el("td", "num", totalEnd ? pct(v1 / totalEnd) : "–"));
+    tr.appendChild(el("td", "muted", nb.points.length ? ENGINE.fmtUTCDate(nb.points[0].t) : "–"));
+    tb.appendChild(tr);
+  });
+  t.appendChild(tb);
+  if (!series.length) {
+    t.innerHTML = "<tbody><tr><td class='muted'>Select one or more NBs from the list (Ctrl/Cmd-click).</td></tr></tbody>";
+  }
+}
+
+/* ---------- dimension tabs ---------- */
+
+function drawAffiliation() {
+  var ch = chart("affChart");
+  if (!ch || !ST.labels.length) {
+    if (!$("affTable")) return;
+  }
+  var groupsSel = {};
+  groupsSel["Independent"] = $("affIndep").checked;
+  groupsSel["Government"] = $("affGov").checked;
+  renderDimension(ch, "affChart", $("affTable"), function (n) { return n.affiliation; }, function (g) {
+    if (g in groupsSel) return groupsSel[g];
+    return true;
+  });
+}
+
+function drawCountry() {
+  var ch = chart("ctyChart");
+  renderDimension(ch, "ctyChart", $("ctyTable"), function (n) { return n.country || "?"; }, function () {
+    return true;
+  });
+}
+
+function renderDimension(ch, chartId, table, keyFn, includeFn) {
+  if (!ch || !table || !ST.labels.length) return;
+  var byKey = ENGINE.aggregateBy(ST.nbs, keyFn);
+  var groups = Object.keys(byKey).filter(function (g) {
+    var s = 0;
+    for (var i = 0; i < byKey[g].length; i++) s += byKey[g][i];
+    return s > 0 && includeFn(g);
+  }).sort(function (a, b) {
+    return byKey[b][byKey[b].length - 1] - byKey[a][byKey[a].length - 1];
+  });
+  drawStacked(ch, groups, byKey);
+  renderDimTable(table, groups, byKey, keyFn);
+  ch.__groups = groups; ch.__byKey = byKey; ch.__keyFn = keyFn;
+}
+
+function drawStacked(ch, groups, byKey) {
+  var pr = periodRange(), sub = subset(pr.i0, pr.i1);
+  ch.setOption({
+    backgroundColor: "transparent",
+    tooltip: { trigger: "axis", valueFormatter: function (v) { return v == null ? "–" : fmt(v); } },
+    legend: { textStyle: { color: "#8b94a7" }, type: "scroll" },
+    grid: { left: 70, right: 20, top: 40, bottom: 30 },
+    xAxis: { type: "category", data: sub.labels, axisLabel: { color: "#8b94a7" },
+      axisLine: { lineStyle: { color: "#2a3549" } } },
+    yAxis: { type: "value", axisLabel: { color: "#8b94a7", formatter: formatThousand },
+      splitLine: { lineStyle: { color: "#1d2637" } } },
+    series: groups.map(function (g) {
+      return {
+        name: g, type: "line", stack: "m",
+        data: sub.of(byKey[g]).map(function (v) { return Math.round(v); }),
+        symbol: "none", lineStyle: { width: 1 }, areaStyle: { opacity: 0.85 },
+        emphasis: { focus: "series" }
+      };
+    }),
+    color: palette(Math.max(groups.length, 1))
+  }, { notMerge: true });
+}
+
+function renderDimTable(table, groups, byKey, keyFn) {
+  var pr = periodRange();
+  var iLast = ST.labels.length - 1;
+  var iYear = Math.max(0, iLast - 12);
+  var monthSpan = iLast - pr.i0;
+  var members = {};
+  var nCount = {};
+  ST.nbs.forEach(function (n) {
+    var g = keyFn(n);
+    (members[g] = members[g] || []).push(n.shortname);
+    nCount[g] = (nCount[g] || 0) + 1;
+  });
+  var t = table;
+  t.innerHTML = "<thead><tr><th>Group</th><th>Members</th>" +
+    "<th class='num'>GCTS now</th><th class='num'>Δ 12m</th><th class='num'>YoY %</th>" +
+    "<th class='num'>GCTS/mo</th><th class='num'>Δ period</th><th class='num'>share</th></tr></thead>";
+  var tb = el("tbody");
+  groups.forEach(function (g) {
+    var now = byKey[g][iLast], y = byKey[g][iYear];
+    var tr = el("tr");
+    tr.appendChild(el("td", null, g));
+    var m = el("td", "muted", (nCount[g] || 0) + ": " + members[g].join(", "));
+    m.title = members[g].join(", ");
+    tr.appendChild(m);
+    tr.appendChild(el("td", "num", fmt(now)));
+    tr.appendChild(el("td", "num " + (now - y >= 0 ? "up" : "down"), (now - y >= 0 ? "+" : "") + fmt(now - y)));
+    tr.appendChild(el("td", "num", y > 0 ? pct((now - y) / y) : "–"));
+    tr.appendChild(el("td", "num", fmt1((now - y) / 12)));
+    tr.appendChild(el("td", "num " + (now - byKey[g][pr.i0] >= 0 ? "up" : "down"),
+      (now - byKey[g][pr.i0] >= 0 ? "+" : "") + fmt(now - byKey[g][pr.i0])));
+    var grand = 0;
+    groups.forEach(function (g2) { grand += byKey[g2][iLast]; });
+    tr.appendChild(el("td", "num", grand ? pct(now / grand) : "–"));
+    tb.appendChild(tr);
+  });
+  t.appendChild(tb);
+}
+
+function csvFor(chartId) {
+  var ch = charts[chartId];
+  if (!ch || !ch.__groups) return;
+  var groups = ch.__groups, byKey = ch.__byKey;
+  var pr = periodRange();
+  var rows = [[charts[chartId].__keyFn === undefined ? "group" : "group"]
+    .concat(ST.labels.slice(pr.i0, pr.i1 + 1))];
+  groups.forEach(function (g) {
+    rows.push([g].concat(ch.__byKey[g].slice(pr.i0, pr.i1 + 1)
+      .map(function (v) { return Math.round(v); })));
+  });
+  download(rows.map(function (r) { return r.join(","); }).join("\n"), "gso_timeline.csv", "text/csv");
+}
+
+function download(text, name, type) {
+  var a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([text], { type: type + ";charset=utf-8" }));
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+/* ---------- records ---------- */
+
+var recSort = { key: "now", dir: -1 };
+
+function drawRecords() {
+  if (!ST.nbs.length) return;
+  var q = $("recSearch").value.toLowerCase();
+  var aff = $("recAffil").value;
+  var cty = $("recCountry").value;
+  var scope = $("recScope").value;
+  var iLast = ST.labels.length - 1;
+  var iYear = Math.max(0, iLast - 12);
+  var total = sumAllNB(iLast);
+  var rows = ST.nbs.filter(function (nb) {
+    if (aff && nb.affiliation !== aff) return false;
+    if (cty && nb.country !== cty) return false;
+    if (scope && !nb.scopes.some(function (s) { return s.key === scope && s.on; })) return false;
+    if (q && (nb.shortname + " " + nb.fullname + " " + nb.id).toLowerCase().indexOf(q) < 0) return false;
+    return true;
+  }).map(function (nb) {
+    var now = nb.series[iLast] || 0, y = nb.series[iYear] || 0;
+    return {
+      nb: nb, now: now, d12: now - y, mo: (now - y) / 12,
+      share: total ? now / total : 0
+    };
+  });
+  var dir = recSort.dir;
+  rows.sort(function (a, b) {
+    var k = recSort.key, va, vb;
+    if (k in a.nb) {
+      va = String(a.nb[k] || ""); vb = String(b.nb[k] || "");
+      return dir * va.localeCompare(vb);
+    }
+    va = a[k]; vb = b[k];
+    return dir * ((va || 0) - (vb || 0));
+  });
+  var t = $("recTable");
+  t.innerHTML = "<thead><tr>" +
+    col("id", "ID") + col("shortname", "Short name") + col("fullname", "Full name") +
+    col("country", "Country") + col("affiliation", "Affiliation") +
+    "<th>Scopes</th>" +
+    col("now", "GCTS now") + col("d12", "Δ 12m") + col("mo", "GCTS/mo") +
+    col("share", "share") + "<th>First snapshot</th>" +
+    "<th>Prev. names</th></tr></thead>";
+  var tb = el("tbody");
+  rows.forEach(function (r) {
+    var nb = r.nb;
+    var tr = el("tr");
+    tr.appendChild(el("td", "num muted", nb.id));
+    tr.appendChild(el("td", null, nb.shortname));
+    var fn = el("td", "muted", nb.fullname);
+    fn.title = nb.fullname;
+    tr.appendChild(fn);
+    tr.appendChild(el("td", null, nb.country));
+    tr.appendChild(el("td", null, nb.affiliation));
+    var sc = el("td");
+    nb.scopes.forEach(function (s) {
+      if (!s.on && !s.status) return;
+      var cls = s.status ? s.status : "expired";
+      if (s.status === "notified") cls = "on";
+      sc.appendChild(el("span", "chip " + cls, s.label));
+    });
+    tr.appendChild(sc);
+    tr.appendChild(el("td", "num", fmt(r.now)));
+    tr.appendChild(el("td", "num " + (r.d12 >= 0 ? "up" : "down"), (r.d12 >= 0 ? "+" : "") + fmt(r.d12)));
+    tr.appendChild(el("td", "num", fmt1(r.mo)));
+    tr.appendChild(el("td", "num", pct(r.share)));
+    tr.appendChild(el("td", "muted", nb.points.length ? ENGINE.fmtUTCDate(nb.points[0].t) : "–"));
+    tr.appendChild(el("td", "muted", nb.prevNames.map(function (p) {
+      return p.name + " (→" + p.changed + ")";
+    }).join("; ")));
+    tb.appendChild(tr);
+  });
+  t.appendChild(tb);
+  if (!rows.length) {
+    t.innerHTML = "<tbody><tr><td class='muted'>No NB matches the current filters.</td></tr></tbody>";
+  }
+
+  function col(key, label) {
+    var th = el("th", null, label + (recSort.key === key ? (recSort.dir > 0 ? " ↑" : " ↓") : ""));
+    th.onclick = function () {
+      recSort.dir = (recSort.key === key) ? -recSort.dir : (key === "now" || key === "d12" ? -1 : 1);
+      recSort.key = key;
+      drawRecords();
+    };
+    return th;
+  }
+}
+
+function recordsCsv() {
+  var iLast = ST.labels.length - 1, iYear = Math.max(0, iLast - 12);
+  var total = sumAllNB(iLast);
+  var rows = [["id", "shortname", "fullname", "country", "affiliation",
+    "gcts_now", "delta_12m", "gcts_per_month", "share", "first_snapshot"]];
+  ST.nbs.forEach(function (nb) {
+    var now = nb.series[iLast] || 0, y = nb.series[iYear] || 0;
+    rows.push([nb.id, nb.shortname, nb.fullname, nb.country, nb.affiliation,
+      Math.round(now), Math.round(now - y), ((now - y) / 12).toFixed(1),
+      total ? (now / total).toFixed(4) : "0",
+      nb.points.length ? ENGINE.fmtUTCDate(nb.points[0].t) : ""]);
+  });
+  download(rows.map(function (r) {
+    return r.map(function (c) {
+      c = String(c);
+      return /[",]/.test(c) ? '"' + c.replace(/"/g, '""') + '"' : c;
+    }).join(",");
+  }).join("\n"), "gso_nb_records.csv", "text/csv");
+}
+
+/* ---------- tabs / wiring ---------- */
+
+function tabChanged(name) {
+  var btns = document.querySelectorAll("#tabs button");
+  Array.prototype.forEach.call(btns, function (b) {
+    b.classList.toggle("active", b.getAttribute("data-tab") === name);
+  });
+  var secs = document.querySelectorAll("section.tab");
+  Array.prototype.forEach.call(secs, function (s) {
+    s.classList.toggle("active", s.id === "tab-" + name);
+  });
+  drawActiveTab();
+}
+
+function drawActiveTab() {
+  if (!ST.nbs.length) { $("banner").style.display = "none"; return; }
+  drawKpiStrip();
+  var btn = document.querySelector("#tabs button.active");
+  var name = btn ? btn.getAttribute("data-tab") : "overview";
+  if (name === "overview") drawOverview();
+  if (name === "snapshot") drawSnapshot();
+  if (name === "compare") drawCompare();
+  if (name === "affiliation") drawAffiliation();
+  if (name === "country") drawCountry();
+  if (name === "records") drawRecords();
+  renderBanner();
+  Object.keys(charts).forEach(function (k) { charts[k].resize(); });
+}
+
+function setOvMode(id) {
+  ["ovTotal", "ovAffil", "ovCountry"].forEach(function (b) {
+    $(b).classList.toggle("active", b === id);
+  });
+  drawOverview();
+}
+
+function wire() {
+  document.querySelectorAll("#tabs button").forEach(function (b) {
+    b.onclick = function () { tabChanged(b.getAttribute("data-tab")); };
+  });
+  $("ovTotal").onclick = function () { setOvMode("ovTotal"); };
+  $("ovAffil").onclick = function () { setOvMode("ovAffil"); };
+  $("ovCountry").onclick = function () { setOvMode("ovCountry"); };
+  $("ovYoY").onchange = drawOverview;
+  Array.prototype.forEach.call(document.querySelectorAll('input[name="snapMode"]'), function (r) {
+    r.onchange = drawSnapshot;
+  });
+  $("cmpFilter").oninput = function () {
+    var q = this.value.toLowerCase();
+    Array.prototype.forEach.call($("cmpSel").options, function (o) {
+      o.style.display = o.text.toLowerCase().indexOf(q) >= 0 ? "" : "none";
+    });
+  };
+  $("cmpClear").onclick = function () {
+    Array.prototype.forEach.call($("cmpSel").options, function (o) { o.selected = false; });
+    drawCompare();
+  };
+  $("exclChk").onchange = function () { applySeries(); drawActiveTab(); };
+  $("affIndep").onchange = drawAffiliation;
+  $("affGov").onchange = drawAffiliation;
+  $("affCsv").onclick = function () { csvFor("affChart"); };
+  $("ctyCsv").onclick = function () { csvFor("ctyChart"); };
+  $("recCsv").onclick = recordsCsv;
+  ["recSearch", "recAffil", "recCountry", "recScope"].forEach(function (id) {
+    $(id).oninput = drawRecords; $(id).onchange = drawRecords;
+  });
+  $("fileInput").onchange = function () {
+    var f = this.files[0];
+    if (!f) return;
+    var r = new FileReader();
+    r.onload = function () { loadData(String(r.result), f.name); };
+    r.readAsText(f, "utf-8");
+  };
+  document.body.addEventListener("dragover", function (e) {
+    e.preventDefault(); e.currentTarget.classList.add("hot");
+  });
+  document.body.addEventListener("dragleave", function (e) {
+    e.currentTarget.classList.remove("hot");
+  });
+  document.body.addEventListener("drop", function (e) {
+    e.preventDefault(); e.currentTarget.classList.remove("hot");
+    var f = e.dataTransfer.files[0];
+    if (f) {
+      var r = new FileReader();
+      r.onload = function () { loadData(String(r.result), f.name); };
+      r.readAsText(f, "utf-8");
+    }
+  });
+  window.addEventListener("resize", function () {
+    Object.keys(charts).forEach(function (k) { charts[k].resize(); });
+  });
+  if (typeof fetch === "function") {
+    fetch("data.json", { cache: "no-store" })
+      .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.text(); })
+      .then(function (t) { if (!ST.nbs.length) loadData(t, "data.json (page folder)"); })
+      .catch(function () { /* no local data.json next to the page; use the file picker */ });
+  }
+}
+
+wire();
+</script>
+</body>
+</html>

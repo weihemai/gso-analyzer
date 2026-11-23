@@ -93,6 +93,10 @@ functionally identical in HTML/HTA — no impact on the app.
   with NB-0008 appearing twice because the register itself lists two companies;
   register sync keeps the first occurrence and logs the anomaly) — use it first
   if register sync ever returns unexpected results.
+- Legacy data files: `data.json` from older versions may store a scope's status
+  inside the scope flag (e.g. `"nb_scope_toys": "suspended"`) instead of the
+  `nb_status_<key>` entry - the loader reads both forms, so statuses survive a
+  load from a legacy or backup file.
 - GCTS timeline import: open the Diagnostics pane, paste an absolute path to an
   existing/older `data.json` (or a backup copy) and click **Import Timeline**.
   Only GCTS numbers + dates are read; scopes/names/statuses from the imported

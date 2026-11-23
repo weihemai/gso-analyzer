@@ -956,6 +956,14 @@
                 st = validStatus(obj["nb_status_" + key]);
                 nb["nb_status_" + key] = st;
 
+                if (!st && typeof obj["nb_scope_" + key] === "string") {
+                    st = validStatus(obj["nb_scope_" + key]);
+
+                    if (st) {
+                        nb["nb_status_" + key] = st;
+                    }
+                }
+
                 if (nb["nb_scope_" + key] && !nb["nb_status_" + key]) {
                     nb["nb_status_" + key] = "notified";
                 }
@@ -2627,10 +2635,17 @@
         }
 
         function statusFromText(text) {
-            var up = squash(String(text || "")).toUpperCase();
+            var up = squash(String(text || "")).replace(/^null\s+/i, "").toUpperCase();
+            var w;
 
             if (STATUS_WORDS.hasOwnProperty(up)) {
                 return STATUS_WORDS[up];
+            }
+
+            for (w in STATUS_WORDS) {
+                if (STATUS_WORDS.hasOwnProperty(w) && up.indexOf(w) === 0) {
+                    return STATUS_WORDS[w];
+                }
             }
 
             return "";
@@ -3049,12 +3064,13 @@
                 for (k = 0; k < SCOPE_KEYS.length; k++) {
                     key = SCOPE_KEYS[k];
                     var active = !!r.scopes[key].active;
-                    var st = active ? (r.scopes[key].status || "notified") : "";
+                    var parsedSt = r.scopes[key].status || "";
+                    var st = active ? (parsedSt || (nb["nb_status_" + key] || "notified")) : "";
 
                     if (nb["nb_scope_" + key] !== active) {
                         changes.push({ key: key, type: "scope", from: nb["nb_scope_" + key], to: active, status: st });
                     } else if (active && nb["nb_status_" + key] !== st) {
-                        changes.push({ key: key, type: "status", from: nb["nb_status_" + key], to: st });
+                        changes.push({ key: key, type: "status", from: nb["nb_status_" + key], to: st, status: st });
                     }
                 }
 
@@ -3101,7 +3117,10 @@
                 for (j = 0; j < scRec.changes.length; j++) {
                     var ch = scRec.changes[j];
 
-                    target["nb_scope_" + ch.key] = ch.to;
+                    if (ch.type === "scope") {
+                        target["nb_scope_" + ch.key] = ch.to;
+                    }
+
                     target["nb_status_" + ch.key] = ch.to ? ch.status : "";
                     appliedScopeChanges++;
 

@@ -89,9 +89,10 @@ functionally identical in HTML/HTA — no impact on the app.
   The default `"httpEngine": "auto"` starts on `ServerXMLHTTP` and switches to
   the user-proxy engine automatically after its first transport failure.
 - **Diagnostics → Dump List HTML** writes `register_dump.html` to the app folder
-  and shows how many NBs the parser recognized on page 1 (expect 9 of 10 with
-  the duplicate NB-0008 skipped) — use it first if register sync ever returns
-  unexpected results.
+  and shows how many NBs the parser recognized on page 1 (expect 10 entries,
+  with NB-0008 appearing twice because the register itself lists two companies;
+  register sync keeps the first occurrence and logs the anomaly) — use it first
+  if register sync ever returns unexpected results.
 - Backups: the app writes `data.json.bak` and dated backups (e.g.
   `data_YYYY-MM-DD.HHMM.json`) before any sync that changes data — you can
   always roll back by restoring one of those files.

@@ -118,7 +118,7 @@
 
         .tableContainer {
             overflow-y: auto;
-            overflow-x: hidden;
+            overflow-x: auto;
             border: 1px solid #cfd8e3;
             position: absolute;
             top: 0;
@@ -489,8 +489,21 @@
             verbose: true,
             cleanupDone: false,
             proxy: "",
-            httpEngine: "auto"
+            httpEngine: "auto",
+            columnWidths: {}
         };
+
+        var COLUMN_DEFS = [
+            { key: "id", def: 60, min: 40 },
+            { key: "nb_shortname", def: 120, min: 60 },
+            { key: "nb_fullname", def: 240, min: 80 },
+            { key: "nb_country", def: 45, min: 34 },
+            { key: "scopes", def: 175, min: 60 },
+            { key: "nb_status_agg", def: 95, min: 70 },
+            { key: "nb_number_gcts", def: 85, min: 60 }
+        ];
+
+        var colResizing = false;
 
         var groupKeysSorted = [];
 
@@ -526,6 +539,8 @@
                 loadData();
                 maybeRunDataCleanup();
                 attachEditorHandlers();
+                setupColumnResize();
+                applyColumnWidths();
                 renderTable();
 
                 updateStatus("Ready");
@@ -985,6 +1000,149 @@
             return 99;
         }
 
+        function colDef(key) {
+            for (var i = 0; i < COLUMN_DEFS.length; i++) {
+                if (COLUMN_DEFS[i].key === key) {
+                    return COLUMN_DEFS[i];
+                }
+            }
+
+            return null;
+        }
+
+        function colWidth(key) {
+            var cd = colDef(key);
+            var w = parseInt(config.columnWidths[key], 10);
+
+            if (!cd) {
+                return isNaN(w) ? 100 : w;
+            }
+
+            return (!isNaN(w) && w >= cd.min) ? w : cd.def;
+        }
+
+        function setColWidth(key, w) {
+            config.columnWidths[key] = w;
+        }
+
+        function applyColumnWidths() {
+            var theads = document.getElementsByTagName("thead");
+            var ths, i;
+
+            if (!theads.length) {
+                return;
+            }
+
+            ths = theads[0].getElementsByTagName("th");
+
+            for (i = 0; i < ths.length && i < COLUMN_DEFS.length; i++) {
+                ths[i].style.width = colWidth(COLUMN_DEFS[i].key) + "px";
+            }
+        }
+
+        function autoFitColumn(idx) {
+            var tbody = document.getElementById("tableBody");
+            var max = 0;
+            var i, cell, w;
+
+            if (!tbody || !tbody.rows) {
+                return;
+            }
+
+            for (i = 0; i < tbody.rows.length; i++) {
+                cell = tbody.rows[i].cells[idx];
+
+                if (cell) {
+                    w = cell.scrollWidth;
+
+                    if (w > max) {
+                        max = w;
+                    }
+                }
+            }
+
+            if (max <= 0) {
+                return;
+            }
+
+            setColWidth(COLUMN_DEFS[idx].key, Math.min(600, max + 14));
+            applyColumnWidths();
+            saveConfig();
+        }
+
+        function attachColumnResize(th, cd, idx) {
+            function nearEdge(ev) {
+                ev = ev || window.event;
+
+                return (typeof ev.offsetX === "number")
+                    ? (ev.offsetX >= th.offsetWidth - 6)
+                    : false;
+            }
+
+            th.onmousemove = function(ev) {
+                ev = ev || window.event;
+
+                var x = (typeof ev.offsetX === "number") ? ev.offsetX : -1;
+
+                th.style.cursor = (x >= 0 && x >= th.offsetWidth - 6) ? "col-resize" : "pointer";
+            };
+
+            th.onmousedown = function(ev) {
+                ev = ev || window.event;
+
+                if (!nearEdge(ev) || colResizing) {
+                    return;
+                }
+
+                var startX = ev.clientX;
+                var startW = th.offsetWidth;
+
+                colResizing = true;
+
+                document.onmousemove = function(ev2) {
+                    ev2 = ev2 || window.event;
+
+                    setColWidth(cd.key, Math.max(cd.min, startW + ev2.clientX - startX));
+                    applyColumnWidths();
+                };
+
+                document.onmouseup = function() {
+                    document.onmousemove = null;
+                    document.onmouseup = null;
+                    saveConfig();
+
+                    window.setTimeout(function() {
+                        colResizing = false;
+                    }, 0);
+                };
+
+                if (ev.preventDefault) {
+                    ev.preventDefault();
+                } else {
+                    ev.returnValue = false;
+                }
+            };
+
+            th.ondblclick = function() {
+                autoFitColumn(idx);
+            };
+        }
+
+        function setupColumnResize() {
+            var theads = document.getElementsByTagName("thead");
+            var ths, i;
+
+            if (!theads.length) {
+                return;
+            }
+
+            ths = theads[0].getElementsByTagName("th");
+
+            for (i = 0; i < ths.length && i < COLUMN_DEFS.length; i++) {
+                attachColumnResize(ths[i], COLUMN_DEFS[i], i);
+            }
+        }
+
         function loadConfig() {
             try {
                 if (fileExists(configFile)) {
@@ -1020,6 +1178,18 @@
                             config.httpEngine = eng;
                         } else {
                             log("Unknown httpEngine value in config.json: " + eng + " (using \"auto\").", "warn");
+                        }
+                    }
+
+                    if (typeof obj.columnWidths !== "undefined" && obj.columnWidths && typeof obj.columnWidths === "object") {
+                        config.columnWidths = {};
+
+                        for (var ci = 0; ci < COLUMN_DEFS.length; ci++) {
+                            var cwv = parseInt(obj.columnWidths[COLUMN_DEFS[ci].key], 10);
+
+                            if (!isNaN(cwv) && cwv > 0) {
+                                config.columnWidths[COLUMN_DEFS[ci].key] = cwv;
+                            }
                         }
                     }
 
@@ -1317,25 +1487,26 @@
                 tr.onclick = makeSelectHandler(item.id);
 
                 td = tr.insertCell(-1);
-                td.style.width = "60px";
+                td.style.width = colWidth("id") + "px";
                 td.appendChild(document.createTextNode(item.id));
 
                 td = tr.insertCell(-1);
-                td.style.width = "120px";
+                td.style.width = colWidth("nb_shortname") + "px";
 
                 shortB = document.createElement("b");
                 shortB.appendChild(document.createTextNode(item.nb_shortname));
                 td.appendChild(shortB);
 
                 td = tr.insertCell(-1);
+                td.style.width = colWidth("nb_fullname") + "px";
                 td.appendChild(document.createTextNode(item.nb_fullname));
 
                 td = tr.insertCell(-1);
-                td.style.width = "45px";
+                td.style.width = colWidth("nb_country") + "px";
                 td.appendChild(document.createTextNode(item.nb_country));
 
                 td = tr.insertCell(-1);
-                td.style.width = "175px";
+                td.style.width = colWidth("scopes") + "px";
 
                 for (k = 0; k < SCOPE_KEYS.length; k++) {
                     if (nb["nb_scope_" + SCOPE_KEYS[k]]) {
@@ -1355,7 +1526,7 @@
                 anyScope = false;
 
                 td = tr.insertCell(-1);
-                td.style.width = "95px";
+                td.style.width = colWidth("nb_status_agg") + "px";
 
                 chip = document.createElement("span");
                 chip.className = "chip " + (item.nb_status_agg || "none");
@@ -1367,7 +1538,7 @@
                 }
 
                 td = tr.insertCell(-1);
-                td.style.width = "85px";
+                td.style.width = colWidth("nb_number_gcts") + "px";
                 td.appendChild(document.createTextNode(String(item.nb_number_gcts)));
 
                 tbody.appendChild(tr);
@@ -1821,6 +1992,10 @@
         }
 
         function setSort(k) {
+            if (colResizing) {
+                return;
+            }
+
             if (sortKey === k) {
                 sortAsc = !sortAsc;
             } else {

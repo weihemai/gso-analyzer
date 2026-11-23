@@ -93,6 +93,14 @@ functionally identical in HTML/HTA — no impact on the app.
   with NB-0008 appearing twice because the register itself lists two companies;
   register sync keeps the first occurrence and logs the anomaly) — use it first
   if register sync ever returns unexpected results.
+- Column widths: drag the right edge of any column header to resize it, or
+  double-click a header to auto-fit that column to its content. Widths persist
+  in `config.json` as `"columnWidths": {"id": 60, "nb_shortname": 120,
+  "nb_fullname": 240, "nb_country": 45, "scopes": 175, "nb_status_agg": 95,
+  "nb_number_gcts": 85}` (all keys optional — omitted columns keep their
+  default; delete the key to reset). Default Full Name width is 240 px so the
+  Scopes chips and GCTS Max stay visible on narrower windows; the table also
+  gains a horizontal scrollbar when the columns need more room.
 - Backups: the app writes `data.json.bak` and dated backups (e.g.
   `data_YYYY-MM-DD.HHMM.json`) before any sync that changes data — you can
   always roll back by restoring one of those files.

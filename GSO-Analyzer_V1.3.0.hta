@@ -506,6 +506,7 @@
 
         var isSyncing = false;
         var syncState = null;
+        var userProxyPreferred = false;
 
         var LOG_MAX_LINES = 500;
 
@@ -1928,6 +1929,15 @@
         }
 
         function httpGet(url) {
+            if (userProxyPreferred) {
+                try {
+                    return httpSend(new ActiveXObject("MSXML2.XMLHTTP"), url);
+                } catch (e0) {
+                    userProxyPreferred = false;
+                    log("User-proxy request failed (" + e0.message + "); falling back to ServerXMLHTTP.", "warn");
+                }
+            }
+
             try {
                 var xhr = new ActiveXObject("MSXML2.ServerXMLHTTP.6.0");
 
@@ -1947,6 +1957,7 @@
                     var fb = new ActiveXObject("MSXML2.XMLHTTP");
 
                     log("ServerXMLHTTP failed (" + e1.message + "); retrying via MSXML2.XMLHTTP with the user proxy settings." + (config.proxy ? "" : netHint()), "warn");
+                    userProxyPreferred = true;
 
                     return httpSend(fb, url);
                 } catch (e2) {

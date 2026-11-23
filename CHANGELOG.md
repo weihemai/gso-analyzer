@@ -60,7 +60,9 @@
 
 - HTTP layer resilience on corporate networks: when `MSXML2.ServerXMLHTTP.6.0`
   fails (timeout, proxy refused, connection error), the request is retried once
-  via `MSXML2.XMLHTTP`, which uses the per-user WinINET/IE proxy settings; a new
+  via `MSXML2.XMLHTTP`, which uses the per-user WinINET/IE proxy settings; once a
+  retry succeeds, the app prefers the user-proxy engine for the rest of the
+  session so scans do not pay the direct-connection timeout per request; a new
   optional `"proxy": "server:port"` key in `config.json` makes `ServerXMLHTTP`
   connect through a named proxy (`setProxy`), and network-failure log lines now
   include a hint about WinHTTP vs IE proxy configuration.

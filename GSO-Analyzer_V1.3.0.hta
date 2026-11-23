@@ -1639,6 +1639,64 @@
             }
         }
 
+        var EDIT_INPUT_IDS = [
+            "fldId",
+            "fldShort",
+            "fldFull",
+            "fldCountry",
+            "fldAff",
+            "fldGcts"
+        ];
+
+        function isEditInput(el) {
+            var i;
+
+            for (i = 0; i < EDIT_INPUT_IDS.length; i++) {
+                if (el.id === EDIT_INPUT_IDS[i]) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        function editorKeydown(ev) {
+            var el, tag, type;
+
+            ev = ev || window.event;
+
+            if (!ev || ev.keyCode !== 13) {
+                return true;
+            }
+
+            el = ev.srcElement || null;
+
+            if (!el) {
+                return true;
+            }
+
+            tag = String(el.tagName || "").toLowerCase();
+
+            if (tag === "input") {
+                type = String(el.type || "text").toLowerCase();
+
+                if (type !== "text") {
+                    return true;
+                }
+            } else if (tag !== "select") {
+                return true;
+            }
+
+            ev.returnValue = false;
+            ev.cancelBubble = true;
+
+            if (tag === "input" && isEditInput(el) && !el.disabled) {
+                saveSelected();
+            }
+
+            return false;
+        }
+
         function attachEditorHandlers() {
             var i, key, cb;
 
@@ -1650,6 +1708,8 @@
                     cb.onclick = makeScopeHandler(key);
                 }
             }
+
+            document.onkeydown = editorKeydown;
         }
 
         function loadSelectedToForm(id) {
@@ -3506,9 +3566,9 @@
     </div>
 
     <div class="toolbar">
-        <button id="btnStart" onclick="startFullScan()">Start Scan</button>
+        <button id="btnStart" type="button" onclick="startFullScan()">Start Scan</button>
         <button id="btnStop" onclick="stopScan()" disabled>Stop Scan</button>
-        <button id="btnSync" onclick="startSync(true)">Sync Register</button>
+        <button id="btnSync" type="button" onclick="startSync(true)">Sync Register</button>
         <button onclick="addNewNB()">Add NB</button>
         <button onclick="saveData()">Save Data</button>
         <button onclick="reloadAll()">Reload</button>

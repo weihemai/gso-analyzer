@@ -124,6 +124,15 @@
   windows, and the table container now scrolls horizontally instead of hiding
   overflow when total widths exceed the window.
 
+- Pressing Enter while editing an NB in the sidebar (short/full name, country,
+  affiliation, GCTS max, ID) unexpectedly started a full register scan: IE8
+  triggers the page's default button from a focused text input, and in a
+  form-less HTA document that lands on the toolbar's first button, "Start Scan".
+  Enter in any text field or status dropdown is now captured at document level:
+  in the sidebar editor it commits the edit (same as clicking Save), everywhere
+  else it is simply ignored, and the two scan/sync toolbar buttons are declared
+  `type="button"` so they can no longer be activated implicitly.
+
 - Register parser updated to the current live list markup (re-verified against
   gso.org.sa, 87 results / 9 pages): NB numbers are now split across inline
   tags (`NB&hyphen;<span>0001</span>`) and previously produced zero recognized

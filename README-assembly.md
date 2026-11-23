@@ -88,6 +88,9 @@ functionally identical in HTML/HTA — no impact on the app.
     `"proxy": "proxyserver:port"`, to make the WinHTTP route work as well.
   The default `"httpEngine": "auto"` starts on `ServerXMLHTTP` and switches to
   the user-proxy engine automatically after its first transport failure.
+- Pressing Enter while editing an NB in the sidebar saves the record (same as
+  clicking **Save**); Enter in any other text field (search, Diagnostics path,
+  Settings) is ignored, so it can never accidentally start a scan or sync.
 - **Diagnostics → Dump List HTML** writes `register_dump.html` to the app folder
   and shows how many NBs the parser recognized on page 1 (expect 10 entries,
   with NB-0008 appearing twice because the register itself lists two companies;

@@ -46,13 +46,27 @@ Every timeline chart has a series toggle: **Total** (levels) / **Δ MoM**
 earlier); deltas use absolute history, so narrowed period windows still start
 with a defined value.
 
+Table behaviour (v0.3.0):
+- All tables (affiliation KPIs, snapshot donut, compare, NB records) are
+  sortable by clicking a column header; each click toggles ascending/descending
+  (numeric columns sort descending first, text columns ascending).
+- **GCTS/mo** in the table views is the net change over the **last 12 months
+  counted backwards from the end of the selected period** (less than 12 if the
+  timeline is shorter), not a fixed calendar average.
+- The Snapshot Donut table shows **Δ MoM and Δ YoY per slice**, calculated
+  backwards from the month picked on the slider (shown as `–` before the first
+  / twelfth month of history); the donut tooltip shows the same deltas.
+- The **Period selector and the anomaly-exclusion toggle live in the Overview
+  chart card** (first card), next to the display toggles.
+
 Data handling notes:
 - Snapshot dates are irregular and non-equidistant; the engine resamples onto a
   monthly grid using **linear interpolation between snapshots** (0 before an
-  NB's first snapshot, last value held afterwards).
+  NB's first snapshot, last value held afterwards). Interpolated values are
+  clamped to be **never negative**.
 - Isolated reversing jumps (counting-rule changes such as the platform-wide
   2024-10-28 spike) are detected as anomalous snapshots and excluded by default
-  (toggle in the header); the banner reports what was excluded.
+  (toggle in the Overview chart card); the banner reports what was excluded.
 - Grouping prefers the `nb_affiliation` field (casing-insensitive, e.g.
   `COTECNA`/`Cotecna` merge); files without that field fall back to fullname
   guessing, and the banner says so.

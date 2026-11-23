@@ -58,6 +58,13 @@
 
 ### Bugfixes (from the V1.2.1 review)
 
+- Register parser updated to the current live list markup (re-verified against
+  gso.org.sa, 87 results / 9 pages): NB numbers are now split across inline
+  tags (`NB&hyphen;<span>0001</span>`) and previously produced zero recognized
+  entries; badge statuses are read from the badge `title` attribute
+  ("null Notified" / Suspended / Withdrawn / Expired) instead of assumed;
+  duplicate NB-0008 (two companies) is reported and skipped per anomaly rules.
+
 - HTTP layer resilience on corporate networks: the engine is now configurable
   via the new optional `"httpEngine"` key in `config.json`, read at startup:
   - `"auto"` (default) — `MSXML2.ServerXMLHTTP.6.0` first; on any transport

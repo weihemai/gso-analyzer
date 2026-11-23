@@ -2282,6 +2282,7 @@
             s = s.replace(/&gt;/gi, ">");
             s = s.replace(/&mdash;/gi, "\u2014");
             s = s.replace(/&ndash;/gi, "\u2013");
+            s = s.replace(/&hyphen;/gi, "-");
 
             return s;
         }
@@ -2291,6 +2292,20 @@
 
             t = t.replace(/<script[\s\S]*?<\/script>/gi, " ");
             t = t.replace(/<style[\s\S]*?<\/style>/gi, " ");
+            t = t.replace(/<[^>]*>/g, function(tag) {
+                var tm = /\stitle="([^"]*)"/i.exec(tag);
+
+                if (tm) {
+                    var st = statusFromText((tm[1] || "").replace(/^null\s+/i, ""));
+
+                    if (st) {
+                        return " Status: " + st + " ";
+                    }
+                }
+
+                return tag;
+            });
+            t = t.replace(/<\/?span[^>]*>/gi, " ");
             t = t.replace(/<[^>]*>/g, "\n");
             t = decodeEntities(t);
 
@@ -2394,7 +2409,13 @@
                         id = m[1];
 
                         if (idx > 0 && (i === 0 || idx - 1 > marks[i - 1])) {
-                            fullname = lines[idx - 1];
+                            var back = idx - 1;
+
+                            while (back > 0 && /^[\u2010\u2011-\u2012\u2013\u2014-]+$/.test(lines[back])) {
+                                back--;
+                            }
+
+                            fullname = lines[back];
                         }
                     }
                 }
@@ -2417,7 +2438,7 @@
                     entry.scopes[SCOPE_KEYS[k]] = { active: false, status: "" };
                 }
 
-                var j, line, sc, cardStatus = "";
+                var j, line, sc, cardStatus = "", lastStatus = "";
 
                 for (j = idx + 1; j < cardEnd; j++) {
                     line = lines[j];
@@ -2427,15 +2448,21 @@
                         continue;
                     }
 
-                    if (cardStatus === "") {
-                        cardStatus = statusFromText(line.replace(/^Status[\s:]*/i, ""));
+                    var stToken = statusFromText(line.replace(/^Status[\s:]*/i, ""));
+
+                    if (stToken) {
+                        lastStatus = stToken;
+
+                        if (cardStatus === "") {
+                            cardStatus = stToken;
+                        }
                     }
 
                     sc = scopeFromCardLine(line);
 
                     if (sc && !entry.scopes[sc.key].active) {
                         entry.scopes[sc.key].active = true;
-                        entry.scopes[sc.key].status = sc.status;
+                        entry.scopes[sc.key].status = sc.status || lastStatus;
                     }
                 }
 

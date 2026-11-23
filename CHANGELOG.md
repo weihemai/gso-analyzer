@@ -58,6 +58,20 @@
 
 ### Bugfixes (from the V1.2.1 review)
 
+- New **Affiliation** column (between Country and Scopes) showing each NB's
+  corporate group as a short name (TUV Rheinland, TUV SUD, TUV Austria,
+  TUV NORD, TUV, DEKRA, Nemko, Intertek, SGS, UL, Cotecna, Bureau Veritas,
+  Eurofins, BSI, IMQ) or `Government` (ministries/authorities, e.g.
+  MOTABAQAH) / `Independent` as fallback - for analysis. The affiliation is
+  guessed from the NB full name: on register-sync additions, when an NB is
+  created manually (guessed as soon as the full name is saved), when the
+  register reports a name change, and for records loaded from a data file
+  that has no `nb_affiliation` yet. Existing values are never overwritten
+  automatically; the editor pane shows the field (stored value, or the guess
+  on save when left empty). The column is resizable/auto-fit like the others
+  (new `nb_affiliation` key in `columnWidths`) and sortable; CSV export gains
+  an `Affiliation` column.
+
 - Register sync wiped per-scope status values on update: a status-type change
   (same scope still active but e.g. notified → suspended/withdrawn) wrote
   `undefined` into `nb_status_<key>` (the change record carried the new value

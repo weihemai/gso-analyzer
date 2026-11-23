@@ -498,6 +498,7 @@
             { key: "nb_shortname", def: 120, min: 60 },
             { key: "nb_fullname", def: 240, min: 80 },
             { key: "nb_country", def: 45, min: 34 },
+            { key: "nb_affiliation", def: 110, min: 60 },
             { key: "scopes", def: 175, min: 60 },
             { key: "nb_status_agg", def: 95, min: 70 },
             { key: "nb_number_gcts", def: 85, min: 60 }
@@ -928,6 +929,42 @@
             return up;
         }
 
+        var AFFILIATION_RULES = [
+            { group: "Government", words: ["MINISTRY", "GOVERNMENT", "AUTHORITY", "MOTABAQAH", "SAUDI SPECIALIZED"] },
+            { group: "TUV Rheinland", words: ["TUV RHEINLAND", "TÜV RHEINLAND"] },
+            { group: "TUV SUD", words: ["TUV SUD", "TUV SUED", "TÜV SÜD"] },
+            { group: "TUV Austria", words: ["TUV AUSTRIA", "TÜV AUSTRIA"] },
+            { group: "TUV NORD", words: ["TUV NORD", "TÜV NORD"] },
+            { group: "TUV", words: ["TUV", "TÜV"] },
+            { group: "DEKRA", words: ["DEKRA"] },
+            { group: "Nemko", words: ["NEMKO"] },
+            { group: "Intertek", words: ["INTERTEK"] },
+            { group: "SGS", words: ["SGS"] },
+            { group: "UL", words: ["UL", "UNDERWRITERS"] },
+            { group: "Cotecna", words: ["COTECNA"] },
+            { group: "Bureau Veritas", words: ["BUREAU VERITAS"] },
+            { group: "Eurofins", words: ["EUROFINS"] },
+            { group: "BSI", words: ["BSI", "BRITISH STANDARDS"] },
+            { group: "IMQ", words: ["IMQ"] }
+        ];
+
+        function guessAffiliation(fullname) {
+            var up = " " + squash(String(fullname || "")).toUpperCase() + " ";
+            var i, j, needle;
+
+            for (i = 0; i < AFFILIATION_RULES.length; i++) {
+                for (j = 0; j < AFFILIATION_RULES[i].words.length; j++) {
+                    needle = " " + AFFILIATION_RULES[i].words[j];
+
+                    if (up.indexOf(needle) >= 0) {
+                        return AFFILIATION_RULES[i].group;
+                    }
+                }
+            }
+
+            return "Independent";
+        }
+
         function normalizeNB(id, obj) {
             if (!obj) {
                 obj = {};
@@ -937,6 +974,7 @@
                 nb_shortname: squash(obj.nb_shortname || ""),
                 nb_fullname: squash(obj.nb_fullname || ""),
                 nb_country: isoCountry(String(obj.nb_country || "")),
+                nb_affiliation: squash(obj.nb_affiliation || guessAffiliation(obj.nb_fullname)),
                 nb_scope_toys: !!obj.nb_scope_toys,
                 nb_scope_lv: !!obj.nb_scope_lv,
                 nb_scope_wer: !!obj.nb_scope_wer,
@@ -1415,6 +1453,7 @@
                             nb_shortname: item.nb_shortname,
                             nb_fullname: item.nb_fullname,
                             nb_country: item.nb_country,
+                            nb_affiliation: item.nb_affiliation,
                             nb_status_agg: deriveAggregateStatus(item),
                             nb_active: hasActiveScope(item),
                             nb_number_gcts: item.nb_number_gcts
@@ -1512,6 +1551,10 @@
                 td = tr.insertCell(-1);
                 td.style.width = colWidth("nb_country") + "px";
                 td.appendChild(document.createTextNode(item.nb_country));
+
+                td = tr.insertCell(-1);
+                td.style.width = colWidth("nb_affiliation") + "px";
+                td.appendChild(document.createTextNode(item.nb_affiliation || "-"));
 
                 td = tr.insertCell(-1);
                 td.style.width = colWidth("scopes") + "px";
@@ -1620,6 +1663,7 @@
             document.getElementById("fldShort").value = nb.nb_shortname;
             document.getElementById("fldFull").value = nb.nb_fullname;
             document.getElementById("fldCountry").value = nb.nb_country;
+            document.getElementById("fldAff").value = nb.nb_affiliation || "";
 
             var k, key, prev = "";
 
@@ -1758,6 +1802,7 @@
             document.getElementById("fldShort").value = "";
             document.getElementById("fldFull").value = "";
             document.getElementById("fldCountry").value = "";
+            document.getElementById("fldAff").value = "";
 
             var k, key;
 
@@ -1782,6 +1827,7 @@
                 "fldShort",
                 "fldFull",
                 "fldCountry",
+                "fldAff",
                 "fldtoys",
                 "fldlv",
                 "fldwer",
@@ -1861,6 +1907,7 @@
                 nb_shortname: shortRaw,
                 nb_fullname: squash(document.getElementById("fldFull").value),
                 nb_country: isoCountry(document.getElementById("fldCountry").value),
+                nb_affiliation: squash(document.getElementById("fldAff").value) || guessAffiliation(squash(document.getElementById("fldFull").value)),
                 nb_number_gcts: newGcts,
                 nb_number_gcts_timeline: cloneTimeline(oldNb.nb_number_gcts_timeline),
                 nb_previous_names: oldNb.nb_previous_names || [],
@@ -1953,6 +2000,7 @@
                 nb_shortname: "NEW-" + id,
                 nb_fullname: "",
                 nb_country: "",
+                nb_affiliation: "",
                 nb_number_gcts: 0,
                 nb_number_gcts_timeline: {},
                 nb_previous_names: [],
@@ -2039,7 +2087,7 @@
         function exportCSV() {
             try {
                 var path = appFolder + "\\GSO_Data_" + getDateStamp() + ".csv";
-                var csv = "ID,ShortName,FullName,Country,Toys,StatusToys,LV,StatusLV,WER,StatusWER,MS-SC,StatusSC,MS-GA,StatusGA,MS-LV,StatusMSLV,OverallStatus,GCTS_Max\r\n";
+                var csv = "ID,ShortName,FullName,Country,Affiliation,Toys,StatusToys,LV,StatusLV,WER,StatusWER,MS-SC,StatusSC,MS-GA,StatusGA,MS-LV,StatusMSLV,OverallStatus,GCTS_Max\r\n";
                 var k, n, agg, row, i, c;
 
                 for (k in NBs) {
@@ -2050,7 +2098,8 @@
                             k,
                             n.nb_shortname,
                             n.nb_fullname,
-                            n.nb_country
+                            n.nb_country,
+                            n.nb_affiliation || guessAffiliation(n.nb_fullname)
                         ];
 
                         for (i = 0; i < SCOPE_KEYS.length; i++) {
@@ -2989,6 +3038,7 @@
                 nb_shortname: generateShortname(r.fullname, r.country, r.id),
                 nb_fullname: r.fullname,
                 nb_country: r.country,
+                nb_affiliation: guessAffiliation(r.fullname),
                 nb_number_gcts: 0,
                 nb_number_gcts_timeline: {},
                 nb_previous_names: [],
@@ -3205,6 +3255,7 @@
                     });
 
                     localNb.nb_fullname = nc.r.fullname;
+                    localNb.nb_affiliation = guessAffiliation(nc.r.fullname);
                     appliedNames++;
 
                     log(
@@ -3489,6 +3540,7 @@
                                 <th style="width:120px" onclick="setSort('nb_shortname')">Short Name</th>
                                 <th onclick="setSort('nb_fullname')">Full Name</th>
                                 <th style="width:45px" onclick="setSort('nb_country')">Cty</th>
+                                <th style="width:110px" onclick="setSort('nb_affiliation')">Affiliation</th>
                                 <th style="width:175px">Scopes</th>
                                 <th style="width:95px" onclick="setSort('nb_status_agg')">Status</th>
                                 <th style="width:85px" onclick="setSort('nb_number_gcts')">GCTS Max</th>
@@ -3555,6 +3607,13 @@
                     <span class="fieldLabel">Country (ISO)</span>
                     <span class="fieldInput">
                         <input type="text" id="fldCountry" disabled>
+                    </span>
+                </div>
+
+                <div class="fieldRow">
+                    <span class="fieldLabel">Affiliation</span>
+                    <span class="fieldInput">
+                        <input type="text" id="fldAff" disabled>
                     </span>
                 </div>
 

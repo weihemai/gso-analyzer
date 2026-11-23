@@ -106,8 +106,8 @@ functionally identical in HTML/HTA — no impact on the app.
 - Column widths: drag the right edge of any column header to resize it, or
   double-click a header to auto-fit that column to its content. Widths persist
   in `config.json` as `"columnWidths": {"id": 60, "nb_shortname": 120,
-  "nb_fullname": 240, "nb_country": 45, "scopes": 175, "nb_status_agg": 95,
-  "nb_number_gcts": 85}` (all keys optional — omitted columns keep their
+  "nb_fullname": 240, "nb_country": 45, "nb_affiliation": 110, "scopes": 175,
+  "nb_status_agg": 95, "nb_number_gcts": 85}` (all keys optional — omitted columns keep their
   default; delete the key to reset). Default Full Name width is 240 px so the
   Scopes chips and GCTS Max stay visible on narrower windows; the table also
   gains a horizontal scrollbar when the columns need more room.

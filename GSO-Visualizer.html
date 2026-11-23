@@ -84,15 +84,9 @@
 </head>
 <body>
 <header>
-  <h1>GSO Visualizer <small>v0.2.0</small></h1>
+  <h1>GSO Visualizer <small>v0.3.0</small></h1>
   <label class="ctl">data.json
     <input type="file" id="fileInput" accept=".json,application/json" />
-  </label>
-  <label class="ctl">Period
-    <select id="fromSel"></select> – <select id="toSel"></select>
-  </label>
-  <label class="ctl" title="Interpolate linearly across snapshots that look like counting-rule changes rather than real certificate movements">
-    <input type="checkbox" id="exclChk" checked /> exclude anomalous snapshots
   </label>
   <span id="loadState" class="muted"></span>
 </header>
@@ -120,12 +114,18 @@
         <button id="ovTotal" class="active">All NBs (total)</button>
         <button id="ovAffil">Stacked by affiliation</button>
         <button id="ovCountry">Stacked by country</button>
-        <span class="muted" style="border-left:1px solid var(--line);padding-left:10px">series</span>
         <span class="seg" data-seg="ov">
           <button data-mode="total" class="active">Total</button>
           <button data-mode="mom">Δ MoM</button>
           <button data-mode="yoy">Δ YoY</button>
         </span>
+      </div>
+      <div class="ctlrow">
+        <span class="muted">period</span>
+        <label class="ctl"><select id="fromSel"></select> – <select id="toSel"></select></label>
+        <label class="ctl" title="Interpolate linearly across snapshots that look like counting-rule changes rather than real certificate movements">
+          <input type="checkbox" id="exclChk" checked /> exclude anomalous snapshots
+        </label>
         <label class="ctl"><input type="checkbox" id="ovYoY" /> show YoY % (secondary axis)</label>
       </div>
       <div id="ovChart" class="chart tall"></div>
@@ -373,7 +373,7 @@ function parseData(text) {
     if (!o || typeof o !== "object") return;
     var tlRaw = o.nb_number_gcts_timeline || {};
     var pts = Object.keys(tlRaw)
-      .map(function (d) { return { t: parseUTCDate(d), v: Number(tlRaw[d]) || 0 }; })
+      .map(function (d) { return { t: parseUTCDate(d), v: Math.max(0, Number(tlRaw[d]) || 0) }; })
       .filter(function (p) { return p.t !== null && isFinite(p.v); })
       .sort(function (a, b) { return a.t - b.t; });
     var merged = [];
@@ -436,7 +436,8 @@ function interpValue(points, t) {
   var p0 = points[lo], p1 = points[hi];
   if (p1.t.getTime() === p0.t.getTime()) return p0.v;
   var frac = (t.getTime() - p0.t.getTime()) / (p1.t.getTime() - p0.t.getTime());
-  return p0.v + (p1.v - p0.v) * frac;
+  var v = p0.v + (p1.v - p0.v) * frac;
+  return v < 0 ? 0 : v;
 }
 
 /* Monthly grid (UTC month ends); minMonth/maxMonth as "YYYY-MM". */
@@ -734,6 +735,81 @@ function modeSlice(arr, i0, i1, mode) {
 }
 function modeTooltip(v) { return v == null ? "–" : fmt(v); }
 
+/* KPIs anchored at absolute index i (usually the period end): last 12 months
+   backwards, or the available span if the timeline is shorter. */
+function kpiAt(i, arr) {
+  var j = i >= 12 ? i - 12 : 0;
+  var now = arr[i] || 0, back = arr[j] || 0;
+  var months = i - j;
+  return {
+    now: now,
+    back: back,
+    d: now - back,
+    mo: months ? (now - back) / months : 0,
+    yoy: back > 0 ? (now - back) / back : null
+  };
+}
+
+/* Generic sortable tables. tblSort keeps per-table sort state; clicking a
+   header toggles asc/desc (numeric columns default to desc on first click). */
+var tblSort = {
+  ov: { key: "now", dir: -1 },
+  cmp: { key: "end", dir: -1 },
+  aff: { key: "now", dir: -1 },
+  cty: { key: "now", dir: -1 },
+  snap: { key: "value", dir: -1 }
+};
+
+function redrawTable(name) {
+  if (name === "ov") drawOvTable();
+  else if (name === "cmp") drawCompare();
+  else if (name === "aff") drawAffiliation();
+  else if (name === "cty") drawCountry();
+  else if (name === "snap") drawSnapshot();
+}
+
+function sortableTable(table, name, columns, rows, cellFn) {
+  var st = tblSort[name];
+  function colByKey(k) {
+    for (var i = 0; i < columns.length; i++) if (columns[i].key === k) return columns[i];
+    return null;
+  }
+  table.innerHTML = "";
+  var thead = el("thead");
+  var trh = el("tr");
+  columns.forEach(function (c) {
+    var th = el("th", c.num ? "num" : null, c.label +
+      (st.key === c.key ? (st.dir > 0 ? " ↑" : " ↓") : ""));
+    th.title = "click to sort (toggles asc/desc)";
+    th.onclick = function () {
+      st.dir = (st.key === c.key) ? -st.dir : (c.num ? -1 : 1);
+      st.key = c.key;
+      redrawTable(name);
+    };
+    trh.appendChild(th);
+  });
+  thead.appendChild(trh);
+  table.appendChild(thead);
+  var ck = colByKey(st.key), dir = st.dir, k = st.key;
+  rows.sort(function (a, b) {
+    if (!ck) return 0;
+    var va = a[k], vb = b[k];
+    if (ck.num) {
+      var na = (va == null || isNaN(va)) ? -Infinity : va;
+      var nbv = (vb == null || isNaN(vb)) ? -Infinity : vb;
+      return dir * (na - nbv);
+    }
+    return dir * String(va == null ? "" : va).localeCompare(String(vb == null ? "" : vb));
+  });
+  var tb = el("tbody");
+  rows.forEach(function (r) {
+    var tr = el("tr");
+    cellFn(r, tr);
+    tb.appendChild(tr);
+  });
+  table.appendChild(tb);
+}
+
 /* ---------- overview ---------- */
 
 function drawOverview() {
@@ -834,21 +910,25 @@ function drawActiveNBs() {
 }
 
 function drawKpiStrip() {
-  var iLast = ST.labels.length - 1;
-  var iYear = Math.max(0, iLast - 12);
-  var tot = sumAllNB(iLast), totY = sumAllNB(iYear);
+  var pr = periodRange();
+  var iEnd = pr.i1;
+  var iBack = iEnd >= 12 ? iEnd - 12 : 0;
+  var monthsBack = iEnd - iBack;
+  var tot = sumAllNB(iEnd), totY = sumAllNB(iBack);
   var d = tot - totY;
   var active = ST.nbs.filter(function (n) {
     return n.scopes.some(function (s) { return s.on && s.status === "notified"; });
   }).length;
   var strip = $("kpiStrip");
   strip.innerHTML = "";
-  add("Live GCTS", fmt(tot), (d >= 0 ? "▲" : "▼"), d >= 0 ? "up" : "down",
-      fmt(Math.abs(d)) + " / 12m · " + (totY ? pct(d / totY) : "–") + " YoY");
-  add("GCTS / month", fmt1(d / 12), "", "up", "net average, last 12m");
-  add("GCTS / year", (d >= 0 ? "+" : "") + fmt(d), "", d >= 0 ? "up" : "down", "net change, last 12m");
+  add("Live GCTS @ " + ST.labels[iEnd], fmt(tot), (d >= 0 ? "▲" : "▼"), d >= 0 ? "up" : "down",
+      fmt(Math.abs(d)) + " / " + monthsBack + "m · " + (totY ? pct(d / totY) : "–") + " YoY");
+  add("GCTS / month", fmt1(monthsBack ? d / monthsBack : 0), "", "up",
+      "net average, last " + monthsBack + "m");
+  add("GCTS / " + monthsBack + "m", (d >= 0 ? "+" : "") + fmt(d), "", d >= 0 ? "up" : "down",
+      "net change, last " + monthsBack + "m");
   add("Active NBs", active, "", "up", "of " + ST.nbs.length + " records (scope notified)");
-  add("Data window", ST.labels[0] + " → " + ST.labels[iLast], "", "up",
+  add("Data window", ST.labels[0] + " → " + ST.labels[ST.labels.length - 1], "", "up",
       ST.grid.length + " monthly points");
   function add(label, val, arrow, cls, subText) {
     var k = el("div", "kpi");
@@ -862,37 +942,37 @@ function drawKpiStrip() {
 }
 
 function drawOvTable() {
-  var iLast = ST.labels.length - 1;
-  var iYear = Math.max(0, iLast - 12);
+  var pr = periodRange();
+  var iEnd = pr.i1;
   var groups = ENGINE.aggregateBy(ST.nbs, function (n) { return n.affiliation; });
+  var tot = 0;
   var rows = Object.keys(groups).map(function (g) {
-    var now = groups[g][iLast], yearAgo = groups[g][iYear];
+    var k = kpiAt(iEnd, groups[g]);
+    tot += k.now;
     return {
       g: g,
       nbs: ST.nbs.filter(function (n) { return n.affiliation === g; }).length,
-      now: now, d12: now - yearAgo,
-      yoy: yearAgo > 0 ? (now - yearAgo) / yearAgo : null,
-      mo: (now - yearAgo) / 12
+      now: k.now, d12: k.d, yoy: k.yoy, mo: k.mo
     };
-  }).sort(function (a, b) { return b.now - a.now; });
-  var tot = rows.reduce(function (a, r) { return a + r.now; }, 0);
-  var t = $("ovTable");
-  t.innerHTML = "<thead><tr><th>Affiliation</th><th class='num'>NBs</th>" +
-    "<th class='num'>GCTS now</th><th class='num'>Δ 12m</th><th class='num'>YoY %</th>" +
-    "<th class='num'>GCTS/mo</th><th class='num'>share</th></tr></thead>";
-  var tb = el("tbody");
-  rows.forEach(function (r) {
-    var tr = el("tr");
+  });
+  rows.forEach(function (r) { r.share = tot ? r.now / tot : 0; });
+  sortableTable($("ovTable"), "ov", [
+    { key: "g", label: "Affiliation" },
+    { key: "nbs", label: "NBs", num: true },
+    { key: "now", label: "GCTS @ " + ST.labels[iEnd], num: true },
+    { key: "d12", label: "Δ 12m", num: true },
+    { key: "yoy", label: "YoY %", num: true },
+    { key: "mo", label: "GCTS/mo", num: true },
+    { key: "share", label: "share", num: true }
+  ], rows, function (r, tr) {
     tr.appendChild(el("td", null, r.g));
     tr.appendChild(el("td", "num", r.nbs));
     tr.appendChild(el("td", "num", fmt(r.now)));
     tr.appendChild(el("td", "num " + (r.d12 >= 0 ? "up" : "down"), (r.d12 >= 0 ? "+" : "") + fmt(r.d12)));
     tr.appendChild(el("td", "num", r.yoy == null ? "–" : pct(r.yoy)));
     tr.appendChild(el("td", "num", fmt1(r.mo)));
-    tr.appendChild(el("td", "num", pct(tot ? r.now / tot : 0)));
-    tb.appendChild(tr);
+    tr.appendChild(el("td", "num", pct(r.share)));
   });
-  t.appendChild(tb);
 }
 
 /* ---------- snapshot donut ---------- */
@@ -908,29 +988,55 @@ function drawSnapshot() {
   else if (mode === "affiliation") { keyFn = function (n) { return n.affiliation; }; title = "Affiliation"; }
   else { keyFn = function (n) { return n.country || "?"; }; title = "Country"; }
 
-  var vals = {};
-  ST.nbs.forEach(function (nb) {
-    var v = Math.round(nb.series[idx] || 0);
-    if (v <= 0) return;
-    vals[keyFn(nb)] = (vals[keyFn(nb)] || 0) + v;
-  });
-  var entries = Object.keys(vals).map(function (k) { return { name: k, value: vals[k] }; })
+  function valsAt(i) {
+    var m = {};
+    ST.nbs.forEach(function (nb) {
+      var v = nb.series[i] || 0;
+      m[keyFn(nb)] = (m[keyFn(nb)] || 0) + v;
+    });
+    return m;
+  }
+  var vals = valsAt(idx);
+  var valsPrev = idx > 0 ? valsAt(idx - 1) : null;
+  var valsYear = idx >= 12 ? valsAt(idx - 12) : null;
+  var entries = Object.keys(vals).filter(function (k) { return Math.round(vals[k]) > 0; })
+    .map(function (k) {
+      var mom = valsPrev ? vals[k] - (valsPrev[k] || 0) : null;
+      var yoy = valsYear ? vals[k] - (valsYear[k] || 0) : null;
+      return { name: k, value: Math.round(vals[k]), mom: mom, yoy: yoy };
+    })
     .sort(function (a, b) { return b.value - a.value; });
   var total = entries.reduce(function (a, e) { return a + e.value; }, 0);
   var maxSlices = mode === "nbs" ? 12 : 16;
   var top = entries.slice(0, maxSlices);
   if (entries.length > maxSlices) {
+    var rest = entries.slice(maxSlices);
+    function sumDelta(key) {
+      var s = 0, any = false;
+      rest.forEach(function (e) { if (e[key] != null) { any = true; s += e[key]; } });
+      return any ? s : null;
+    }
     top.push({
-      name: "Others (" + (entries.length - maxSlices) + ")",
-      value: entries.slice(maxSlices).reduce(function (a, e) { return a + e.value; }, 0)
+      name: "Others (" + rest.length + ")",
+      value: rest.reduce(function (a, e) { return a + e.value; }, 0),
+      mom: sumDelta("mom"),
+      yoy: sumDelta("yoy")
     });
   }
-  $("snapTotal").textContent = "total " + fmt(total) + " GCTS · " + entries.length + " " + title.toLowerCase() + "(s) with certificates";
+  $("snapTotal").textContent = "total " + fmt(total) + " GCTS · " + entries.length + " " + title.toLowerCase() + "(s) with certificates · deltas vs " + (idx > 0 ? ST.labels[idx - 1] : "–") + " / " + (idx >= 12 ? ST.labels[idx - 12] : "–");
 
   ch.setOption({
     backgroundColor: "transparent",
     tooltip: { trigger: "item",
-      formatter: function (p) { return esc(p.name) + "<br/>" + fmt(p.value) + " GCTS (" + p.percent + "%)"; } },
+      formatter: function (p) {
+        var e = top.filter(function (x) { return x.name === p.name; })[0];
+        var html = esc(p.name) + "<br/>" + fmt(p.value) + " GCTS (" + p.percent + "%";
+        if (e) {
+          if (e.mom != null) html += " · Δ MoM " + (e.mom >= 0 ? "+" : "") + fmt(e.mom);
+          if (e.yoy != null) html += " · Δ YoY " + (e.yoy >= 0 ? "+" : "") + fmt(e.yoy);
+        }
+        return html + ")";
+      } },
     legend: { type: "scroll", orient: "vertical", right: 5, top: 10, bottom: 10,
       textStyle: { color: "#8b94a7" }, pageTextStyle: { color: "#8b94a7" } },
     series: [{
@@ -950,16 +1056,26 @@ function drawSnapshot() {
   }, { notMerge: true });
 
   var t = $("snapTable");
-  t.innerHTML = "<thead><tr><th>" + esc(title) + "</th><th class='num'>GCTS</th><th class='num'>share</th></tr></thead>";
-  var tb = el("tbody");
-  entries.forEach(function (e) {
-    var tr = el("tr");
-    tr.appendChild(el("td", null, e.name));
-    tr.appendChild(el("td", "num", fmt(e.value)));
-    tr.appendChild(el("td", "num", pct(total ? e.value / total : 0)));
-    tb.appendChild(tr);
+  var rows = top.map(function (e) {
+    return {
+      name: e.name, value: e.value,
+      share: total ? e.value / total : 0,
+      mom: e.mom, yoy: e.yoy
+    };
   });
-  t.appendChild(tb);
+  sortableTable(t, "snap", [
+    { key: "name", label: title },
+    { key: "value", label: "GCTS @ " + ST.labels[idx], num: true },
+    { key: "share", label: "share", num: true },
+    { key: "mom", label: "Δ MoM", num: true },
+    { key: "yoy", label: "Δ YoY", num: true }
+  ], rows, function (r, tr) {
+    tr.appendChild(el("td", null, r.name));
+    tr.appendChild(el("td", "num", fmt(r.value)));
+    tr.appendChild(el("td", "num", pct(r.share)));
+    tr.appendChild(el("td", "num muted", r.mom == null ? "–" : (r.mom >= 0 ? "+" : "") + fmt(r.mom)));
+    tr.appendChild(el("td", "num muted", r.yoy == null ? "–" : (r.yoy >= 0 ? "+" : "") + fmt(r.yoy)));
+  });
 }
 
 /* ---------- compare ---------- */
@@ -995,38 +1111,54 @@ function drawCompare() {
   }, { notMerge: true });
 
   var t = $("cmpTable");
-  t.innerHTML = "<thead><tr><th>NB</th><th>Affiliation</th><th>Country</th>" +
-    "<th class='num'>start</th><th class='num'>end</th><th class='num'>Δ</th>" +
-    "<th class='num'>GCTS/mo</th><th class='num'>CAGR</th>" +
-    "<th class='num'>share end</th><th>first snapshot</th></tr></thead>";
-  var tb = el("tbody");
+  if (!series.length) {
+    t.innerHTML = "<tbody><tr><td class='muted'>Select one or more NBs from the list (Ctrl/Cmd-click).</td></tr></tbody>";
+    return;
+  }
   var totalEnd = 0;
   selNBs.forEach(function (nb) { totalEnd += nb.series[pr.i1] || 0; });
   var months = pr.i1 - pr.i0;
-  series.sort(function (a, b) {
-    return (b.data[b.data.length - 1] || 0) - (a.data[a.data.length - 1] || 0);
-  }).forEach(function (s) {
-    var nb = s.nb;
+  var iBack = pr.i1 >= 12 ? pr.i1 - 12 : 0;
+  var rows = selNBs.map(function (nb) {
     var v0 = nb.series[pr.i0] || 0, v1 = nb.series[pr.i1] || 0;
     var years = months / 12;
-    var cagr = (years > 0 && v0 > 0) ? Math.pow(v1 / v0, 1 / years) - 1 : null;
-    var tr = el("tr");
-    tr.appendChild(el("td", null, nb.shortname));
-    tr.appendChild(el("td", null, nb.affiliation));
-    tr.appendChild(el("td", null, nb.country));
-    tr.appendChild(el("td", "num", fmt(v0)));
-    tr.appendChild(el("td", "num", fmt(v1)));
-    tr.appendChild(el("td", "num " + (v1 - v0 >= 0 ? "up" : "down"), (v1 >= v0 ? "+" : "") + fmt(v1 - v0)));
-    tr.appendChild(el("td", "num", months ? fmt1((v1 - v0) / months) : "–"));
-    tr.appendChild(el("td", "num", cagr == null ? "–" : pct(cagr)));
-    tr.appendChild(el("td", "num", totalEnd ? pct(v1 / totalEnd) : "–"));
-    tr.appendChild(el("td", "muted", nb.points.length ? ENGINE.fmtUTCDate(nb.points[0].t) : "–"));
-    tb.appendChild(tr);
+    var kB = nb.series[iBack] || 0;
+    return {
+      shortname: nb.shortname,
+      affiliation: nb.affiliation,
+      country: nb.country,
+      start: v0,
+      end: v1,
+      delta: v1 - v0,
+      mo: (iBack < pr.i1) ? (v1 - kB) / (pr.i1 - iBack) : null,
+      cagr: (years > 0 && v0 > 0) ? Math.pow(v1 / v0, 1 / years) - 1 : null,
+      share: totalEnd ? v1 / totalEnd : 0,
+      first: nb.points.length ? ENGINE.fmtUTCDate(nb.points[0].t) : "–"
+    };
   });
-  t.appendChild(tb);
-  if (!series.length) {
-    t.innerHTML = "<tbody><tr><td class='muted'>Select one or more NBs from the list (Ctrl/Cmd-click).</td></tr></tbody>";
-  }
+  sortableTable(t, "cmp", [
+    { key: "shortname", label: "NB" },
+    { key: "affiliation", label: "Affiliation" },
+    { key: "country", label: "Country" },
+    { key: "start", label: "start", num: true },
+    { key: "end", label: "end", num: true },
+    { key: "delta", label: "Δ", num: true },
+    { key: "mo", label: "GCTS/mo (12m)", num: true },
+    { key: "cagr", label: "CAGR", num: true },
+    { key: "share", label: "share end", num: true },
+    { key: "first", label: "first snapshot", num: false }
+  ], rows, function (r, tr) {
+    tr.appendChild(el("td", null, r.shortname));
+    tr.appendChild(el("td", null, r.affiliation));
+    tr.appendChild(el("td", null, r.country));
+    tr.appendChild(el("td", "num", fmt(r.start)));
+    tr.appendChild(el("td", "num", fmt(r.end)));
+    tr.appendChild(el("td", "num " + (r.delta >= 0 ? "up" : "down"), (r.delta >= 0 ? "+" : "") + fmt(r.delta)));
+    tr.appendChild(el("td", "num", r.mo == null ? "–" : fmt1(r.mo)));
+    tr.appendChild(el("td", "num", r.cagr == null ? "–" : pct(r.cagr)));
+    tr.appendChild(el("td", "num", pct(r.share)));
+    tr.appendChild(el("td", "muted", r.first));
+  });
 }
 
 /* ---------- dimension tabs ---------- */
@@ -1063,7 +1195,7 @@ function renderDimension(ch, chartId, table, keyFn, includeFn, seg) {
     return byKey[b][byKey[b].length - 1] - byKey[a][byKey[a].length - 1];
   });
   drawStacked(ch, groups, byKey, seg);
-  renderDimTable(table, groups, byKey, keyFn);
+  renderDimTable(table, groups, byKey, keyFn, seg);
   ch.__groups = groups; ch.__byKey = byKey; ch.__keyFn = keyFn;
 }
 
@@ -1092,11 +1224,9 @@ function drawStacked(ch, groups, byKey, seg) {
   }, { notMerge: true });
 }
 
-function renderDimTable(table, groups, byKey, keyFn) {
+function renderDimTable(table, groups, byKey, keyFn, sortName) {
   var pr = periodRange();
-  var iLast = ST.labels.length - 1;
-  var iYear = Math.max(0, iLast - 12);
-  var monthSpan = iLast - pr.i0;
+  var iEnd = pr.i1;
   var members = {};
   var nCount = {};
   ST.nbs.forEach(function (n) {
@@ -1104,30 +1234,40 @@ function renderDimTable(table, groups, byKey, keyFn) {
     (members[g] = members[g] || []).push(n.shortname);
     nCount[g] = (nCount[g] || 0) + 1;
   });
-  var t = table;
-  t.innerHTML = "<thead><tr><th>Group</th><th>Members</th>" +
-    "<th class='num'>GCTS now</th><th class='num'>Δ 12m</th><th class='num'>YoY %</th>" +
-    "<th class='num'>GCTS/mo</th><th class='num'>Δ period</th><th class='num'>share</th></tr></thead>";
-  var tb = el("tbody");
-  groups.forEach(function (g) {
-    var now = byKey[g][iLast], y = byKey[g][iYear];
-    var tr = el("tr");
-    tr.appendChild(el("td", null, g));
-    var m = el("td", "muted", (nCount[g] || 0) + ": " + members[g].join(", "));
-    m.title = members[g].join(", ");
-    tr.appendChild(m);
-    tr.appendChild(el("td", "num", fmt(now)));
-    tr.appendChild(el("td", "num " + (now - y >= 0 ? "up" : "down"), (now - y >= 0 ? "+" : "") + fmt(now - y)));
-    tr.appendChild(el("td", "num", y > 0 ? pct((now - y) / y) : "–"));
-    tr.appendChild(el("td", "num", fmt1((now - y) / 12)));
-    tr.appendChild(el("td", "num " + (now - byKey[g][pr.i0] >= 0 ? "up" : "down"),
-      (now - byKey[g][pr.i0] >= 0 ? "+" : "") + fmt(now - byKey[g][pr.i0])));
-    var grand = 0;
-    groups.forEach(function (g2) { grand += byKey[g2][iLast]; });
-    tr.appendChild(el("td", "num", grand ? pct(now / grand) : "–"));
-    tb.appendChild(tr);
+  var grand = 0;
+  groups.forEach(function (g) { grand += byKey[g][iEnd]; });
+  var rows = groups.map(function (g) {
+    var k = kpiAt(iEnd, byKey[g]);
+    return {
+      g: g,
+      members: (nCount[g] || 0) + ": " + members[g].join(", "),
+      now: k.now, d12: k.d, yoy: k.yoy, mo: k.mo,
+      dPeriod: k.now - byKey[g][pr.i0],
+      share: grand ? k.now / grand : 0
+    };
   });
-  t.appendChild(tb);
+  sortableTable(table, sortName, [
+    { key: "g", label: "Group" },
+    { key: "members", label: "Members" },
+    { key: "now", label: "GCTS @ " + ST.labels[iEnd], num: true },
+    { key: "d12", label: "Δ 12m", num: true },
+    { key: "yoy", label: "YoY %", num: true },
+    { key: "mo", label: "GCTS/mo", num: true },
+    { key: "dPeriod", label: "Δ period", num: true },
+    { key: "share", label: "share", num: true }
+  ], rows, function (r, tr) {
+    tr.appendChild(el("td", null, r.g));
+    var m = el("td", "muted", r.members);
+    m.title = r.members;
+    tr.appendChild(m);
+    tr.appendChild(el("td", "num", fmt(r.now)));
+    tr.appendChild(el("td", "num " + (r.d12 >= 0 ? "up" : "down"), (r.d12 >= 0 ? "+" : "") + fmt(r.d12)));
+    tr.appendChild(el("td", "num", r.yoy == null ? "–" : pct(r.yoy)));
+    tr.appendChild(el("td", "num", fmt1(r.mo)));
+    tr.appendChild(el("td", "num " + (r.dPeriod >= 0 ? "up" : "down"),
+      (r.dPeriod >= 0 ? "+" : "") + fmt(r.dPeriod)));
+    tr.appendChild(el("td", "num", pct(r.share)));
+  });
 }
 
 function csvFor(chartId) {
@@ -1211,13 +1351,15 @@ function drawRecChart() {
 
 function drawRecords() {
   if (!ST.nbs.length) return;
-  var iLast = ST.labels.length - 1;
-  var iYear = Math.max(0, iLast - 12);
+  var pr = periodRange();
+  var iLast = pr.i1;
+  var iYear = iLast >= 12 ? iLast - 12 : 0;
+  var monthsBack = Math.max(1, iLast - iYear);
   var total = sumAllNB(iLast);
   var rows = recordsFiltered().map(function (nb) {
     var now = nb.series[iLast] || 0, y = nb.series[iYear] || 0;
     return {
-      nb: nb, now: now, d12: now - y, mo: (now - y) / 12,
+      nb: nb, now: now, d12: now - y, mo: (now - y) / monthsBack,
       share: total ? now / total : 0
     };
   });
@@ -1241,7 +1383,7 @@ function drawRecords() {
   trh.appendChild(col("country", "Country"));
   trh.appendChild(col("affiliation", "Affiliation"));
   trh.appendChild(el("th", null, "Scopes"));
-  trh.appendChild(col("now", "GCTS now"));
+  trh.appendChild(col("now", "GCTS @ " + ST.labels[iLast]));
   trh.appendChild(col("d12", "Δ 12m"));
   trh.appendChild(col("mo", "GCTS/mo"));
   trh.appendChild(col("share", "share"));
@@ -1294,7 +1436,8 @@ function drawRecords() {
   function col(key, label) {
     var th = el("th", null, label + (recSort.key === key ? (recSort.dir > 0 ? " ↑" : " ↓") : ""));
     th.onclick = function () {
-      recSort.dir = (recSort.key === key) ? -recSort.dir : (key === "now" || key === "d12" ? -1 : 1);
+      recSort.dir = (recSort.key === key) ? -recSort.dir :
+        (key === "now" || key === "d12" || key === "mo" || key === "share" ? -1 : 1);
       recSort.key = key;
       drawRecords();
     };

@@ -46,6 +46,15 @@ function ok(cond, name) {
   ok(ENGINE.interpValue(pts, new Date(Date.UTC(2020, 0, 1))) === 200, "interp: hold after last snapshot");
   ok(ENGINE.interpValue([], new Date()) === 0, "interp: empty points -> 0");
 
+  const neg = [
+    { t: new Date(Date.UTC(2019, 0, 15)), v: -100 },
+    { t: new Date(Date.UTC(2019, 6, 15)), v: -200 }
+  ];
+  ok(ENGINE.interpValue(neg, new Date(Date.UTC(2019, 3, 15))) === 0,
+    "interp: negative interpolation clamped to 0");
+  ok(ENGINE.interpValue(neg, new Date(Date.UTC(2019, 0, 15))) === 0,
+    "interp: negative snapshot clamped to 0");
+
   const anom = [
     { t: d(0), v: 1000 }, { t: d(30), v: 1200 }, { t: d(60), v: 5000 },
     { t: d(90), v: 1300 }, { t: d(120), v: 1400 }

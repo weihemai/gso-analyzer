@@ -65,6 +65,13 @@
   ("null Notified" / Suspended / Withdrawn / Expired) instead of assumed;
   duplicate NB-0008 (two companies) is reported and skipped per anomaly rules.
 
+- Table sort by the Status column crashed in HTA with
+  "Object doesn't support property or method 'indexOf'" (IE8 has no
+  `Array.prototype.indexOf`); replaced with an ES3-safe `statusRank()` lookup.
+  Because the sort key stayed on Status, the same crash aborted the scan right
+  after the first NB completed (the `renderTable()` call inside the scan loop
+  re-threw and broke the timers) - both reported symptoms are fixed by this.
+
 - HTTP layer resilience on corporate networks: the engine is now configurable
   via the new optional `"httpEngine"` key in `config.json`, read at startup:
   - `"auto"` (default) — `MSXML2.ServerXMLHTTP.6.0` first; on any transport

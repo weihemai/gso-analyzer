@@ -975,6 +975,16 @@
             return "";
         }
 
+        function statusRank(st) {
+            for (var p = 0; p < STATUS_ORDER.length; p++) {
+                if (STATUS_ORDER[p] === st) {
+                    return p;
+                }
+            }
+
+            return 99;
+        }
+
         function loadConfig() {
             try {
                 if (fileExists(configFile)) {
@@ -1246,8 +1256,8 @@
                 }
 
                 if (sortKey === "nb_status_agg") {
-                    va = STATUS_ORDER.indexOf(a.nb_status_agg) >= 0 ? STATUS_ORDER.indexOf(a.nb_status_agg) : 99;
-                    vb = STATUS_ORDER.indexOf(b.nb_status_agg) >= 0 ? STATUS_ORDER.indexOf(b.nb_status_agg) : 99;
+                    va = statusRank(a.nb_status_agg);
+                    vb = statusRank(b.nb_status_agg);
 
                     return sortAsc ? (va - vb) : (vb - va);
                 }

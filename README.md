@@ -37,9 +37,11 @@ analytics in any browser. Data stays local - nothing is uploaded.
 
 Views: Overview (total market timeline incl. overall sum, KPI strip: live GCTS,
 GCTS/month, GCTS/year, YoY, plus the number of active NBs over time), Snapshot
-Donut at any month (all NBs / by affiliation / by country), Compare NBs, By
-Affiliation, By Country, and a sortable/filterable NB Records table with CSV
-export and a timeline chart of the selected NBs.
+Donut at any month (all NBs / by affiliation / by country, each as **Total /
+Δ MoM / Δ YoY** slices — delta modes slice the magnitude of the change, zero
+slices are dropped, and a hint is shown when the selected month has too little
+history), Compare NBs, By Affiliation, By Country, and a sortable/filterable NB
+Records table with CSV export and a timeline chart of the selected NBs.
 
 Every timeline chart has a series toggle: **Total** (levels) / **Δ MoM**
 (month-over-month net change) / **Δ YoY** (change vs the same month one year
@@ -47,8 +49,8 @@ earlier); deltas use absolute history, so narrowed period windows still start
 with a defined value.
 
 Table behaviour (v0.3.0):
-- All tables (affiliation KPIs, snapshot donut, compare, NB records) are
-  sortable by clicking a column header; each click toggles ascending/descending
+- **All tables (affiliation KPIs, snapshot donut, compare, NB records) are
+  sortable** by clicking a column header; each click toggles ascending/descending
   (numeric columns sort descending first, text columns ascending).
 - **GCTS/mo** in the table views is the net change over the **last 12 months
   counted backwards from the end of the selected period** (less than 12 if the

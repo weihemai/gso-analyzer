@@ -58,12 +58,15 @@
 
 ### Bugfixes (from the V1.2.1 review)
 
-- HTTP layer resilience on corporate networks: when `MSXML2.ServerXMLHTTP.6.0`
-  fails (timeout, proxy refused, connection error), the request is retried once
-  via `MSXML2.XMLHTTP`, which uses the per-user WinINET/IE proxy settings; once a
-  retry succeeds, the app prefers the user-proxy engine for the rest of the
-  session so scans do not pay the direct-connection timeout per request; a new
-  optional `"proxy": "server:port"` key in `config.json` makes `ServerXMLHTTP`
+- HTTP layer resilience on corporate networks: the engine is now configurable
+  via the new optional `"httpEngine"` key in `config.json`, read at startup:
+  - `"auto"` (default) — `MSXML2.ServerXMLHTTP.6.0` first; on any transport
+    failure it retries once via `MSXML2.XMLHTTP` (per-user WinINET/IE proxy) and
+    then prefers that engine for the rest of the session;
+  - `"user"` — always `MSXML2.XMLHTTP`, i.e. exactly the V1.2.1 behavior, for
+    proxy-only networks where the direct WinHTTP route is blocked;
+  - `"server"` — always `ServerXMLHTTP` with explicit timeouts, no fallback.
+  An optional `"proxy": "server:port"` key in `config.json` makes `ServerXMLHTTP`
   connect through a named proxy (`setProxy`), and network-failure log lines now
   include a hint about WinHTTP vs IE proxy configuration.
 - File writes (`config.json`, `data.json`, CSV exports, register dump) now fall back

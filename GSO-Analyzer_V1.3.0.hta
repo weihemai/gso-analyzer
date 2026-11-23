@@ -488,7 +488,8 @@
             threshold: 1,
             verbose: true,
             cleanupDone: false,
-            proxy: ""
+            proxy: "",
+            httpEngine: "auto"
         };
 
         var groupKeysSorted = [];
@@ -1000,6 +1001,16 @@
 
                     if (typeof obj.proxy !== "undefined") {
                         config.proxy = String(obj.proxy || "");
+                    }
+
+                    if (typeof obj.httpEngine !== "undefined") {
+                        var eng = String(obj.httpEngine || "").toLowerCase();
+
+                        if (eng === "auto" || eng === "user" || eng === "server") {
+                            config.httpEngine = eng;
+                        } else {
+                            log("Unknown httpEngine value in config.json: " + eng + " (using \"auto\").", "warn");
+                        }
                     }
 
                     log("Loaded config.json", "ok");
@@ -1929,7 +1940,13 @@
         }
 
         function httpGet(url) {
-            if (userProxyPreferred) {
+            var engine = config.httpEngine || "auto";
+
+            if (engine === "user") {
+                return httpSend(new ActiveXObject("MSXML2.XMLHTTP"), url);
+            }
+
+            if (engine === "auto" && userProxyPreferred) {
                 try {
                     return httpSend(new ActiveXObject("MSXML2.XMLHTTP"), url);
                 } catch (e0) {
@@ -1953,6 +1970,10 @@
 
                 return httpSend(xhr, url);
             } catch (e1) {
+                if (engine === "server") {
+                    throw new Error(e1.message + (config.proxy ? "" : netHint()));
+                }
+
                 try {
                     var fb = new ActiveXObject("MSXML2.XMLHTTP");
 

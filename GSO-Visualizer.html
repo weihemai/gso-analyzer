@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>GSO Visualizer v0.4.0</title>
+<title>GSO Visualizer v0.5.0</title>
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
 <style>
   :root {
@@ -84,7 +84,7 @@
 </head>
 <body>
 <header>
-  <h1>GSO Visualizer <small>v0.4.0</small></h1>
+  <h1>GSO Visualizer <small>v0.5.0</small></h1>
   <label class="ctl">data.json
     <input type="file" id="fileInput" accept=".json,application/json" />
   </label>
@@ -541,13 +541,85 @@ function pct(n) { return (n * 100).toLocaleString("en-US", { minimumFractionDigi
 function esc(s) { return String(s).replace(/[&<>"]/g, function (c) {
   return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; });
 }
+var BASE_COLORS = ["#5b9bd5", "#ed7d31", "#a5a5a5", "#ffc000", "#70ad47", "#4472c4",
+  "#c0504d", "#8064a2", "#9bbb59", "#e0908f", "#2b6464", "#7c5a2e",
+  "#957ad0", "#b07aa1", "#646e10", "#264478"];
 function palette(n) {
-  var base = ["#5b9bd5", "#ed7d31", "#a5a5a5", "#ffc000", "#70ad47", "#4472c4",
-    "#c0504d", "#8064a2", "#9bbb59", "#e0908f", "#2b6464", "#7c5a2e",
-    "#957ad0", "#b07aa1", "#646e10", "#264478"];
   var out = [];
-  for (var i = 0; i < n; i++) out.push(base[i % base.length]);
+  for (var i = 0; i < n; i++) out.push(BASE_COLORS[i % BASE_COLORS.length]);
   return out;
+}
+/* Corporate brand colors per affiliation group (traced from official brand
+   sources: SGS #F36F21, Intertek #FFC700, TUV Rheinland #0071B9, TUV SUD
+   #005CA9, TUV Austria #D51317, DEKRA #008143, Bureau Veritas #2169B5,
+   UL #FF5C00, Cotecna #00BD7B, BSI kitemark red #C8102E, Eurofins #005596,
+   IMQ #00A3E0, Nemko #005288; Independent/Government stay neutral). */
+var BRAND_COLORS = {
+  "sgs": "#F36F21",
+  "intertek": "#FFC700",
+  "tuv rheinland": "#0071B9",
+  "tuv sud": "#005CA9",
+  "tuv austria": "#D51317",
+  "dekra": "#008143",
+  "bureau veritas": "#2169B5",
+  "ul": "#FF5C00",
+  "cotecna": "#00BD7B",
+  "bsi": "#C8102E",
+  "eurofins": "#005596",
+  "imq": "#00A3E0",
+  "nemko": "#005288",
+  "government": "#9AA5B5",
+  "independent": "#7E8899"
+};
+function mixHex(hex, target, k) {
+  var t = parseInt(hex.slice(1), 16);
+  function mix(c) { return Math.round(c + (target - c) * k); }
+  return "#" + ((1 << 24) + (mix((t >> 16) & 255) << 16) +
+    (mix((t >> 8) & 255) << 8) + mix(t & 255)).toString(16).slice(1);
+}
+function relLum(hex) {
+  var t = parseInt(hex.slice(1), 16);
+  return (((t >> 16) & 255) + ((t >> 8) & 255) + (t & 255)) / 765;
+}
+function brandColor(name) {
+  var c = BRAND_COLORS[String(name || "").toLowerCase()];
+  if (!c) return null;
+  var l = relLum(c);
+  if (l < 0.38) return mixHex(c, 255, 0.3);
+  return c;
+}
+/* Stable fallback for names without a brand color: hash the name onto the
+   base palette, so an entity keeps the same color in every view. */
+function stableColor(name) {
+  var b = brandColor(name);
+  if (b) return b;
+  var k = String(name || "?").toLowerCase(), h = 0;
+  for (var i = 0; i < k.length; i++) h = (h * 31 + k.charCodeAt(i)) >>> 0;
+  return BASE_COLORS[h % BASE_COLORS.length];
+}
+/* Per-NB color: the affiliation's brand color, deterministically shaded so
+   several NBs of one group stay distinguishable in NB-level charts. The first
+   NB (by id) of a group keeps the pure brand color. */
+var NB_SHADE_IDX = null;
+var NB_SHADES = [0, -0.1, 0.1, -0.2, 0.2, 0.3];
+function nbColor(nb) {
+  if (!NB_SHADE_IDX) {
+    NB_SHADE_IDX = {};
+    var seen = {};
+    ST.nbs.forEach(function (n) {
+      var a = n.affiliation || "?";
+      seen[a] = (seen[a] || 0) + 1;
+      NB_SHADE_IDX[n.id] = (seen[a] - 1) % NB_SHADES.length;
+    });
+  }
+  var c = brandColor(nb.affiliation) || stableColor(nb.shortname);
+  var k = NB_SHADES[NB_SHADE_IDX[nb.id] || 0];
+  return k === 0 ? c : mixHex(c, k > 0 ? 255 : 0, Math.abs(k));
+}
+function donutColor(name) {
+  if (name && name.indexOf("Others (") === 0) return "#5c6470";
+  var nb = ST.nbs.filter(function (n) { return n.shortname === name; })[0];
+  return nb ? nbColor(nb) : stableColor(name);
 }
 function chart(id) {
   if (typeof echarts === "undefined") return null;
@@ -568,6 +640,7 @@ function loadData(text, sourceName) {
   clearFail();
   try {
     ST.nbs = ENGINE.parseData(text);
+    NB_SHADE_IDX = null;
     rebuild();
     $("welcome").style.display = "none";
     $("banner").style.display = "block";
@@ -832,7 +905,7 @@ function drawOverview() {
   var suf = sMode === "mom" ? " (Δ MoM)" : sMode === "yoy" ? " (Δ YoY)" : "";
   if (mode === "ovTotal") {
     var total = ENGINE.sumSeries(ENGINE.aggregateBy(ST.nbs, function (n) { return "*"; }));
-    seriesSet = [{ name: "Total live GCTS" + suf, data: modeSlice(total, pr.i0, pr.i1, sMode), stack: null }];
+    seriesSet = [{ name: "Total live GCTS" + suf, data: modeSlice(total, pr.i0, pr.i1, sMode), stack: null, color: "#5b9bd5" }];
   } else {
     var byKey = ENGINE.aggregateBy(ST.nbs, mode === "ovAffil"
       ? function (n) { return n.affiliation; }
@@ -841,15 +914,15 @@ function drawOverview() {
       return byKey[b][byKey[b].length - 1] - byKey[a][byKey[a].length - 1];
     });
     seriesSet = groups.map(function (g) {
-      return { name: g + suf, data: modeSlice(byKey[g], pr.i0, pr.i1, sMode), stack: "total" };
+      return { name: g + suf, data: modeSlice(byKey[g], pr.i0, pr.i1, sMode), stack: "total", color: stableColor(g) };
     });
   }
   var s = seriesSet.map(function (ser) {
     return {
       name: ser.name, type: "line", data: ser.data,
-      symbol: "none", stack: ser.stack,
+      symbol: "none", stack: ser.stack, color: ser.color,
       areaStyle: ser.stack ? { opacity: 0.85 } : { opacity: 0.15 },
-      lineStyle: { width: ser.stack ? 1 : 2.5 },
+      lineStyle: { width: ser.stack ? 1 : 2.5, color: ser.color },
       emphasis: { focus: "series" }
     };
   });
@@ -866,7 +939,7 @@ function drawOverview() {
     });
     s.push({
       name: "YoY %", type: "line", data: yoy, yAxisIndex: 1, symbol: "none",
-      lineStyle: { type: "dashed", width: 1.5 }, color: "#d9a441", connectNulls: false
+      lineStyle: { type: "dashed", width: 1.5, color: "#d9a441" }, color: "#d9a441", connectNulls: false
     });
   }
   ch.setOption({
@@ -883,7 +956,7 @@ function drawOverview() {
       { type: "value", axisLabel: { color: "#d9a441", formatter: "{value}%" }, splitLine: { show: false } }
     ],
     series: s,
-    color: palette(Math.max(seriesSet.length, 1))
+    color: seriesSet.map(function (ser) { return ser.color || palette(1)[0]; })
   }, { notMerge: true });
   drawOvTable();
 }
@@ -1076,8 +1149,11 @@ function drawSnapshot() {
       textStyle: { color: "#8b94a7" }, pageTextStyle: { color: "#8b94a7" } },
     series: [{
       type: "pie", radius: ["42%", "68%"], center: ["38%", "50%"],
-      data: top, label: { show: false },
-      itemStyle: { borderColor: "#0f1420", borderWidth: 1 }
+      data: top.map(function (e) {
+        return { name: e.name, value: e.value, mom: e.mom, yoy: e.yoy,
+          itemStyle: { color: donutColor(e.name), borderColor: "#0f1420", borderWidth: 1 } };
+      }),
+      label: { show: false }
     }],
     graphic: [{
       type: "text", left: "38%", top: "48%",
@@ -1088,7 +1164,7 @@ function drawSnapshot() {
       style: { text: ST.labels[idx] + (sMode === "total" ? "" : " · " + metricLbl),
         textAlign: "center", fill: "#8b94a7", fontSize: 11 }
     }],
-    color: palette(Math.max(top.length, 1))
+    color: top.map(function (e) { return donutColor(e.name); })
   }, { notMerge: true });
 
   var t = $("snapTable");
@@ -1139,11 +1215,12 @@ function drawCompare() {
     series: series.map(function (s) {
       return {
         name: s.nb.shortname, type: "line", data: s.data,
-        symbol: "circle", symbolSize: 4, lineStyle: { width: 2 },
-        emphasis: { focus: "series" }
+        symbol: "circle", symbolSize: 4, lineStyle: { width: 2, color: nbColor(s.nb) },
+        itemStyle: { color: nbColor(s.nb) },
+        emphasis: { focus: "series" }, color: nbColor(s.nb)
       };
     }),
-    color: palette(Math.max(series.length, 1))
+    color: series.map(function (s) { return nbColor(s.nb); })
   }, { notMerge: true });
 
   var t = $("cmpTable");
@@ -1252,11 +1329,11 @@ function drawStacked(ch, groups, byKey, seg) {
         name: g + (sMode === "mom" ? " (Δ MoM)" : sMode === "yoy" ? " (Δ YoY)" : ""),
         type: "line", stack: "m",
         data: modeSlice(byKey[g], pr.i0, pr.i1, sMode),
-        symbol: "none", lineStyle: { width: 1 }, areaStyle: { opacity: 0.85 },
-        emphasis: { focus: "series" }
+        symbol: "none", lineStyle: { width: 1, color: stableColor(g) }, areaStyle: { opacity: 0.85 },
+        emphasis: { focus: "series" }, color: stableColor(g)
       };
     }),
-    color: palette(Math.max(groups.length, 1))
+    color: groups.map(function (g) { return stableColor(g); })
   }, { notMerge: true });
 }
 
@@ -1377,11 +1454,12 @@ function drawRecChart() {
     series: series.map(function (s) {
       return {
         name: s.nb.shortname, type: "line", data: s.data,
-        symbol: "circle", symbolSize: 3, lineStyle: { width: 2 },
-        emphasis: { focus: "series" }
+        symbol: "circle", symbolSize: 3, lineStyle: { width: 2, color: nbColor(s.nb) },
+        itemStyle: { color: nbColor(s.nb) },
+        emphasis: { focus: "series" }, color: nbColor(s.nb)
       };
     }),
-    color: palette(Math.max(series.length, 1))
+    color: series.map(function (s) { return nbColor(s.nb); })
   }, { notMerge: true });
 }
 

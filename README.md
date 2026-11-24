@@ -48,6 +48,19 @@ Every timeline chart has a series toggle: **Total** (levels) / **Δ MoM**
 earlier); deltas use absolute history, so narrowed period windows still start
 with a defined value.
 
+Colors (v0.5.0): affiliation groups use their **corporate brand colors**, kept
+identical across all views (overview stacks, affiliation/country charts,
+donut, compare, records timeline). Traced from official brand sources: SGS
+`#F36F21`, Intertek `#FFC700`, TÜV Rheinland `#0071B9`, TÜV SÜD `#005CA9`,
+TÜV Austria `#D51317`, DEKRA `#008143`, Bureau Veritas `#2169B5`, UL `#FF5C00`,
+Cotecna `#00BD7B`, BSI `#C8102E`, Eurofins `#005596`, IMQ `#00A3E0`, Nemko
+`#005288` (very dark shades are slightly brightened for the dark UI). Groups
+without a known brand color (e.g. countries, `Independent`, `Government`,
+new affiliations) get a **stable color derived from their name**, so an entity
+never changes color between views. NB-level series inherit the affiliation's
+brand color, deterministically shaded so several NBs of one group stay
+distinguishable — the lowest NB id keeps the pure brand color.
+
 Table behaviour (v0.3.0):
 - **All tables (affiliation KPIs, snapshot donut, compare, NB records) are
   sortable** by clicking a column header; each click toggles ascending/descending

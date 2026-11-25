@@ -115,6 +115,14 @@ if (text) {
   if (hasAff) {
     const cotecna = nbs.filter(n => n.affiliation === "Cotecna");
     ok(cotecna.length === 3, "Cotecna group has 3 NBs (incl. TOBY-SZ), got " + cotecna.length);
+    ok(!nbs.some(n => /^(bsi|eurofins)$/i.test(n.affiliation)),
+      "no BSI/Eurofins groups remain (rolled up)");
+    const ulGroup = nbs.filter(n => n.affiliation === "UL");
+    ok(ulGroup.length === 4, "UL group has 4 NBs after Eurofins roll-up, got " + ulGroup.length);
+    const indep = nbs.filter(n => n.affiliation === "Independent");
+    ok(indep.length === 33, "Independent group has 33 NBs after BSI roll-up, got " + indep.length);
+    ok(ENGINE.groupAffiliation("BSI") === "Independent" && ENGINE.groupAffiliation("EUROFINS") === "UL"
+      && ENGINE.groupAffiliation("SGS") === "SGS", "groupAffiliation mapping correct");
   } else {
     ok(stats.fallbackAffiliation === nbs.length, "legacy file: all affiliations guessed from fullname");
   }

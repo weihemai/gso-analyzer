@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>GSO Visualizer v0.6.0</title>
+<title>GSO Visualizer v0.6.1</title>
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
 <style>
   :root {
@@ -87,7 +87,7 @@
 </head>
 <body>
 <header>
-  <h1>GSO Visualizer <small>v0.6.0</small></h1>
+  <h1>GSO Visualizer <small>v0.6.1</small></h1>
   <label class="ctl">data.json
     <input type="file" id="fileInput" accept=".json,application/json" />
   </label>
@@ -316,6 +316,17 @@ var AFFILIATION_RULES = [
   { group: "Government", words: ["MINISTRY", "GOVERNMENT", "AUTHORITY"] }
 ];
 
+/* Affiliations rolled up into another group (no longer treated as their own
+   group): BSI NBs count as Independent; Eurofins was acquired by UL. */
+var AFFILIATION_GROUPS = {
+  "bsi": "Independent",
+  "eurofins": "UL"
+};
+function groupAffiliation(a) {
+  var m = AFFILIATION_GROUPS[String(a || "").toLowerCase()];
+  return m || a;
+}
+
 function stripBom(text) {
   return (typeof text === "string" && text.charCodeAt(0) === 0xFEFF) ? text.slice(1) : String(text);
 }
@@ -403,7 +414,7 @@ function parseData(text) {
       shortname: o.nb_shortname || ("NB-" + id),
       fullname: o.nb_fullname || "",
       country: String(o.nb_country || "").toUpperCase(),
-      affiliation: normalizeAffiliation(affRaw || guessAffiliation(o.nb_fullname)),
+      affiliation: groupAffiliation(normalizeAffiliation(affRaw || guessAffiliation(o.nb_fullname))),
       affiliationSource: affRaw ? "field" : "guess",
       gcts: Number(o.nb_number_gcts) || 0,
       points: merged,
@@ -535,6 +546,8 @@ function yearTotals(series, grid) {
 var ENGINE = {
   SCOPES: SCOPES,
   AFFILIATION_RULES: AFFILIATION_RULES,
+  AFFILIATION_GROUPS: AFFILIATION_GROUPS,
+  groupAffiliation: groupAffiliation,
   stripBom: stripBom,
   parseUTCDate: parseUTCDate,
   fmtUTCDate: fmtUTCDate,
@@ -592,15 +605,13 @@ var BRAND_COLORS = {
   "tuv sud": "#005CA9",
   "tuv austria": "#D51317",
   "dekra": "#008143",
-  "bureau veritas": "#2169B5",
-  "ul": "#FF5C00",
+  "bureau veritas": "#C8102E",
+  "ul": "#DA291C",
   "cotecna": "#00BD7B",
-  "bsi": "#C8102E",
-  "eurofins": "#005596",
-  "imq": "#00A3E0",
-  "nemko": "#005288",
+  "imq": "#00A651",
+  "nemko": "#5F7D95",
   "government": "#9AA5B5",
-  "independent": "#7E8899"
+  "independent": "#8B5E3C"
 };
 function mixHex(hex, target, k) {
   var t = parseInt(hex.slice(1), 16);
@@ -616,7 +627,7 @@ function brandColor(name) {
   var c = BRAND_COLORS[String(name || "").toLowerCase()];
   if (!c) return null;
   var l = relLum(c);
-  if (l < 0.38) return mixHex(c, 255, 0.3);
+  if (l < 0.32) return mixHex(c, 255, 0.18);
   return c;
 }
 /* Stable fallback for names without a brand color: hash the name onto the

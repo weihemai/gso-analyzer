@@ -60,18 +60,24 @@ Bars (v0.6.0):
   net changes** (a partial first year counts from 0; only years fully inside
   the selected period are shown as bars).
 
-Colors (v0.5.0): affiliation groups use their **corporate brand colors**, kept
+Colors (v0.6.1): affiliation groups use their **corporate brand colors**, kept
 identical across all views (overview stacks, affiliation/country charts,
-donut, compare, records timeline). Traced from official brand sources: SGS
-`#F36F21`, Intertek `#FFC700`, TÜV Rheinland `#0071B9`, TÜV SÜD `#005CA9`,
-TÜV Austria `#D51317`, DEKRA `#008143`, Bureau Veritas `#2169B5`, UL `#FF5C00`,
-Cotecna `#00BD7B`, BSI `#C8102E`, Eurofins `#005596`, IMQ `#00A3E0`, Nemko
-`#005288` (very dark shades are slightly brightened for the dark UI). Groups
-without a known brand color (e.g. countries, `Independent`, `Government`,
+donut, compare, records timeline): SGS `#F36F21` (orange), Intertek `#FFC700`
+(yellow), TÜV Rheinland `#0071B9`, TÜV SÜD `#005CA9` (dark blue), TÜV Austria
+`#D51317` (red), DEKRA `#008143` (green), Bureau Veritas `#C8102E` (red),
+UL Solutions `#DA291C` (red), Cotecna `#00BD7B` (green), IMQ `#00A651`
+(green), Nemko `#5F7D95` (grey-blue), `Government` `#9AA5B5`, `Independent`
+`#8B5E3C` (brown). Only colours too dark for the dark background are slightly
+lifted (18% toward white when luminance < 0.32), so most groups render in
+their exact brand colour. Groups without a known brand color (e.g. countries,
 new affiliations) get a **stable color derived from their name**, so an entity
 never changes color between views. NB-level series inherit the affiliation's
 brand color, deterministically shaded so several NBs of one group stay
 distinguishable — the lowest NB id keeps the pure brand color.
+
+Group merges (v0.6.1): the dataset's `nb_affiliation` values are rolled up per
+corporate reality — **BSI NBs count as Independent** and **Eurofins counts as
+UL** (acquired), so both inherit the target group's colour everywhere.
 
 Table behaviour (v0.3.0):
 - **All tables (affiliation KPIs, snapshot donut, compare, NB records) are

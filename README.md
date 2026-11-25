@@ -43,10 +43,22 @@ slices are dropped, and a hint is shown when the selected month has too little
 history), Compare NBs, By Affiliation, By Country, and a sortable/filterable NB
 Records table with CSV export and a timeline chart of the selected NBs.
 
-Every timeline chart has a series toggle: **Total** (levels) / **Δ MoM**
-(month-over-month net change) / **Δ YoY** (change vs the same month one year
-earlier); deltas use absolute history, so narrowed period windows still start
-with a defined value.
+Every timeline chart has a series toggle: **Total** (levels, line) / **Δ MoM**
+(month-over-month net change, bars) / **Δ YoY** (change vs the same month one
+year earlier, line) / **Year total** (net change per calendar year, bars); the
+deltas use absolute history, so narrowed period windows still start with a
+defined value. In the bar modes the tooltip shows the bar **value plus its
+increase from the previous month or year**.
+
+Bars (v0.6.0):
+- Δ MoM and Year total render as **bar charts** in every timeline (overview,
+  active NBs, affiliation, country, compare, records).
+- Affiliation- and country-grouped timelines show **stacked bars per group**;
+  the Compare and NB-records timelines show the bars of the compared NBs
+  **side by side** for direct contrast.
+- Year total aggregates the interpolated monthly series into **calendar-year
+  net changes** (a partial first year counts from 0; only years fully inside
+  the selected period are shown as bars).
 
 Colors (v0.5.0): affiliation groups use their **corporate brand colors**, kept
 identical across all views (overview stacks, affiliation/country charts,
@@ -71,8 +83,9 @@ Table behaviour (v0.3.0):
 - The Snapshot Donut table shows **Δ MoM and Δ YoY per slice**, calculated
   backwards from the month picked on the slider (shown as `–` before the first
   / twelfth month of history); the donut tooltip shows the same deltas.
-- The **Period selector and the anomaly-exclusion toggle live in the Overview
-  chart card** (first card), next to the display toggles.
+- The **Period selector and the anomaly-exclusion toggle live in a sticky bar
+  above all tabs** (v0.6.0), so the from–to period is reachable from every
+  screen and applies to all views.
 
 Data handling notes:
 - Snapshot dates are irregular and non-equidistant; the engine resamples onto a
@@ -81,7 +94,7 @@ Data handling notes:
   clamped to be **never negative**.
 - Isolated reversing jumps (counting-rule changes such as the platform-wide
   2024-10-28 spike) are detected as anomalous snapshots and excluded by default
-  (toggle in the Overview chart card); the banner reports what was excluded.
+  (toggle in the global period bar); the banner reports what was excluded.
 - Grouping prefers the `nb_affiliation` field (casing-insensitive, e.g.
   `COTECNA`/`Cotecna` merge); files without that field fall back to fullname
   guessing, and the banner says so.

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>GSO Visualizer v0.5.0</title>
+<title>GSO Visualizer v0.6.1</title>
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
 <style>
   :root {
@@ -78,13 +78,16 @@
   select[multiple] { width: 100%; }
   .cols { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-start; }
   .cols > div { flex: 1 1 380px; }
+  #periodBar { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; gap: 12px;
+    align-items: center; padding: 7px 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
+  #periodBar select { max-width: 110px; }
   #errbox { display: none; background: #4a2626; border: 1px solid var(--err);
     border-radius: 6px; padding: 8px 12px; margin-bottom: 12px; color: #f1caca; }
 </style>
 </head>
 <body>
 <header>
-  <h1>GSO Visualizer <small>v0.5.0</small></h1>
+  <h1>GSO Visualizer <small>v0.6.1</small></h1>
   <label class="ctl">data.json
     <input type="file" id="fileInput" accept=".json,application/json" />
   </label>
@@ -98,6 +101,14 @@
   <button data-tab="country">By Country</button>
   <button data-tab="records">NB Records</button>
 </nav>
+<div id="periodBar">
+  <span class="muted">period (all views)</span>
+  <label class="ctl">from <select id="fromSel"></select></label>
+  <label class="ctl">to <select id="toSel"></select></label>
+  <label class="ctl" title="Interpolate linearly across snapshots that look like counting-rule changes rather than real certificate movements">
+    <input type="checkbox" id="exclChk" checked /> exclude anomalous snapshots
+  </label>
+</div>
 <main>
   <div id="errbox"></div>
   <div id="welcome" class="drop">Load a <b>data.json</b> (GSO Analyzer V1.3.0 export) via the file picker above.
@@ -118,14 +129,8 @@
           <button data-mode="total" class="active">Total</button>
           <button data-mode="mom">Δ MoM</button>
           <button data-mode="yoy">Δ YoY</button>
+          <button data-mode="ybar">Year total</button>
         </span>
-      </div>
-      <div class="ctlrow">
-        <span class="muted">period</span>
-        <label class="ctl"><select id="fromSel"></select> – <select id="toSel"></select></label>
-        <label class="ctl" title="Interpolate linearly across snapshots that look like counting-rule changes rather than real certificate movements">
-          <input type="checkbox" id="exclChk" checked /> exclude anomalous snapshots
-        </label>
         <label class="ctl"><input type="checkbox" id="ovYoY" /> show YoY % (secondary axis)</label>
       </div>
       <div id="ovChart" class="chart tall"></div>
@@ -137,6 +142,7 @@
           <button data-mode="total" class="active">Total</button>
           <button data-mode="mom">Δ MoM</button>
           <button data-mode="yoy">Δ YoY</button>
+          <button data-mode="ybar">Year total</button>
         </span>
       </div>
       <div id="ovNBChart" class="chart"></div>
@@ -181,6 +187,7 @@
           <button data-mode="total" class="active">Total</button>
           <button data-mode="mom">Δ MoM</button>
           <button data-mode="yoy">Δ YoY</button>
+          <button data-mode="ybar">Year total</button>
         </span>
       </div>
       <div class="cols">
@@ -204,6 +211,7 @@
           <button data-mode="total" class="active">Total</button>
           <button data-mode="mom">Δ MoM</button>
           <button data-mode="yoy">Δ YoY</button>
+          <button data-mode="ybar">Year total</button>
         </span>
         <button id="affCsv">export CSV</button>
       </div>
@@ -223,6 +231,7 @@
           <button data-mode="total" class="active">Total</button>
           <button data-mode="mom">Δ MoM</button>
           <button data-mode="yoy">Δ YoY</button>
+          <button data-mode="ybar">Year total</button>
         </span>
         <button id="ctyCsv">export CSV</button>
       </div>
@@ -242,6 +251,7 @@
           <button data-mode="total" class="active">Total</button>
           <button data-mode="mom">Δ MoM</button>
           <button data-mode="yoy">Δ YoY</button>
+          <button data-mode="ybar">Year total</button>
         </span>
         <button id="recClrSel">clear selection</button>
         <span class="muted" id="recSelInfo"></span>
@@ -305,6 +315,17 @@ var AFFILIATION_RULES = [
   { group: "IMQ", words: ["IMQ"] },
   { group: "Government", words: ["MINISTRY", "GOVERNMENT", "AUTHORITY"] }
 ];
+
+/* Affiliations rolled up into another group (no longer treated as their own
+   group): BSI NBs count as Independent; Eurofins was acquired by UL. */
+var AFFILIATION_GROUPS = {
+  "bsi": "Independent",
+  "eurofins": "UL"
+};
+function groupAffiliation(a) {
+  var m = AFFILIATION_GROUPS[String(a || "").toLowerCase()];
+  return m || a;
+}
 
 function stripBom(text) {
   return (typeof text === "string" && text.charCodeAt(0) === 0xFEFF) ? text.slice(1) : String(text);
@@ -393,7 +414,7 @@ function parseData(text) {
       shortname: o.nb_shortname || ("NB-" + id),
       fullname: o.nb_fullname || "",
       country: String(o.nb_country || "").toUpperCase(),
-      affiliation: normalizeAffiliation(affRaw || guessAffiliation(o.nb_fullname)),
+      affiliation: groupAffiliation(normalizeAffiliation(affRaw || guessAffiliation(o.nb_fullname))),
       affiliationSource: affRaw ? "field" : "guess",
       gcts: Number(o.nb_number_gcts) || 0,
       points: merged,
@@ -502,10 +523,31 @@ function sumSeries(map) {
   });
   return out;
 }
+/* Calendar-year buckets over the monthly grid: {y, i0, i1} month-index
+   ranges, in order. */
+function yearBuckets(grid) {
+  var out = [];
+  for (var i = 0; i < grid.length; i++) {
+    var y = grid[i].getUTCFullYear();
+    if (!out.length || out[out.length - 1].y !== y) out.push({ y: y, i0: i, i1: i });
+    else out[out.length - 1].i1 = i;
+  }
+  return out;
+}
+/* Net GCTS change per calendar year (interpolated monthly series, summed
+   within each year — equals series[end] − series[month before the year]). */
+function yearTotals(series, grid) {
+  return yearBuckets(grid).map(function (b) {
+    var a = b.i0 > 0 ? series[b.i0 - 1] : 0;
+    return Math.round((series[b.i1] - a) * 10) / 10;
+  });
+}
 
 var ENGINE = {
   SCOPES: SCOPES,
   AFFILIATION_RULES: AFFILIATION_RULES,
+  AFFILIATION_GROUPS: AFFILIATION_GROUPS,
+  groupAffiliation: groupAffiliation,
   stripBom: stripBom,
   parseUTCDate: parseUTCDate,
   fmtUTCDate: fmtUTCDate,
@@ -519,7 +561,9 @@ var ENGINE = {
   monthEndGrid: monthEndGrid,
   buildSeries: buildSeries,
   aggregateBy: aggregateBy,
-  sumSeries: sumSeries
+  sumSeries: sumSeries,
+  yearBuckets: yearBuckets,
+  yearTotals: yearTotals
 };
 /*__ENGINE_END__*/
 
@@ -561,15 +605,13 @@ var BRAND_COLORS = {
   "tuv sud": "#005CA9",
   "tuv austria": "#D51317",
   "dekra": "#008143",
-  "bureau veritas": "#2169B5",
-  "ul": "#FF5C00",
+  "bureau veritas": "#C8102E",
+  "ul": "#DA291C",
   "cotecna": "#00BD7B",
-  "bsi": "#C8102E",
-  "eurofins": "#005596",
-  "imq": "#00A3E0",
-  "nemko": "#005288",
+  "imq": "#00A651",
+  "nemko": "#5F7D95",
   "government": "#9AA5B5",
-  "independent": "#7E8899"
+  "independent": "#8B5E3C"
 };
 function mixHex(hex, target, k) {
   var t = parseInt(hex.slice(1), 16);
@@ -585,7 +627,7 @@ function brandColor(name) {
   var c = BRAND_COLORS[String(name || "").toLowerCase()];
   if (!c) return null;
   var l = relLum(c);
-  if (l < 0.38) return mixHex(c, 255, 0.3);
+  if (l < 0.32) return mixHex(c, 255, 0.18);
   return c;
 }
 /* Stable fallback for names without a brand color: hash the name onto the
@@ -783,9 +825,10 @@ function subset(idx0, idx1) {
   };
 }
 
-/* Series mode: "total" (levels) | "mom" (month-over-month net change) |
-   "yoy" (change vs same month one year earlier). Uses absolute indexes so a
-   narrowed period window still has its history for the first point. */
+/* Series mode: "total" (levels, line) | "mom" (month-over-month net change,
+   bars) | "yoy" (change vs same month one year earlier, line) | "ybar" (net
+   change per calendar year, bars). mom/yoy use absolute indexes so a narrowed
+   period window still has its history for the first point. */
 var SEG_MODES = { ov: "total", nbs: "total", aff: "total", cty: "total", cmp: "total", rec: "total", snap: "total" };
 function segMode(seg) { return SEG_MODES[seg] || "total"; }
 function setSegMode(seg, mode) {
@@ -813,6 +856,58 @@ function modeSlice(arr, i0, i1, mode) {
   return out;
 }
 function modeTooltip(v) { return v == null ? "–" : fmt(v); }
+
+/* Bar modes: monthly increase (mom) and yearly total per calendar year (ybar). */
+function isBarMode(sMode) { return sMode === "mom" || sMode === "ybar"; }
+function xLabelsFor(pr, sMode) {
+  if (sMode === "ybar") {
+    return ENGINE.yearBuckets(ST.grid)
+      .filter(function (b) { return b.i0 >= pr.i0 && b.i1 <= pr.i1; })
+      .map(function (b) { return String(b.y); });
+  }
+  return ST.labels.slice(pr.i0, pr.i1 + 1);
+}
+function barDataFor(arr, pr, sMode) {
+  if (sMode === "mom") return modeSlice(arr, pr.i0, pr.i1, "mom");
+  if (sMode === "yoy") return modeSlice(arr, pr.i0, pr.i1, "yoy");
+  if (sMode === "ybar") {
+    return ENGINE.yearBuckets(ST.grid)
+      .filter(function (b) { return b.i0 >= pr.i0 && b.i1 <= pr.i1; })
+      .map(function (b) {
+        var a = b.i0 > 0 ? arr[b.i0 - 1] : 0;
+        return Math.round((arr[b.i1] - a) * 10) / 10;
+      });
+  }
+  return modeSlice(arr, pr.i0, pr.i1, "total");
+}
+function fmtSigned(v) {
+  if (v == null) return "–";
+  var n = Math.round(v * 10) / 10;
+  return (n >= 0 ? "+" : "") + fmt(n);
+}
+/* Tooltip for delta bars: shows the bar value and its increase from the
+   previous month/year. `datasets` carries the per-series data arrays; the
+   previous point is the previous bar (month columns or year columns). */
+function deltaTooltip(datasets, unitWord) {
+  return function (ps) {
+    if (!Array.isArray(ps)) ps = [ps];
+    var html = ps.length && ps[0].axisValueLabel ? esc(ps[0].axisValueLabel) + "<br/>" : "";
+    ps.forEach(function (p) {
+      html += p.marker + " " + esc(p.seriesName) + ": " + fmtSigned(p.value);
+      var arr = datasets[p.seriesIndex];
+      if (arr && arr.data && p.dataIndex > 0 && arr.data[p.dataIndex - 1] != null && p.value != null) {
+        html += " · Δ vs previous " + unitWord + ": " +
+          fmtSigned(Math.round((p.value - arr.data[p.dataIndex - 1]) * 10) / 10);
+      }
+      html += "<br/>";
+    });
+    return html;
+  };
+}
+function modeSuffix(sMode) {
+  return sMode === "mom" ? " (Δ MoM)" : sMode === "yoy" ? " (Δ YoY)" :
+    sMode === "ybar" ? " (year total)" : "";
+}
 
 /* KPIs anchored at absolute index i (usually the period end): last 12 months
    backwards, or the available span if the timeline is shorter. */
@@ -902,10 +997,11 @@ function drawOverview() {
   var ovYoY = $("ovYoY");
   ovYoY.disabled = sMode !== "total";
   var seriesSet = [];
-  var suf = sMode === "mom" ? " (Δ MoM)" : sMode === "yoy" ? " (Δ YoY)" : "";
+  var suf = modeSuffix(sMode);
+  var bar = isBarMode(sMode);
   if (mode === "ovTotal") {
     var total = ENGINE.sumSeries(ENGINE.aggregateBy(ST.nbs, function (n) { return "*"; }));
-    seriesSet = [{ name: "Total live GCTS" + suf, data: modeSlice(total, pr.i0, pr.i1, sMode), stack: null, color: "#5b9bd5" }];
+    seriesSet = [{ name: "Total live GCTS" + suf, data: barDataFor(total, pr, sMode), stack: null, color: "#5b9bd5" }];
   } else {
     var byKey = ENGINE.aggregateBy(ST.nbs, mode === "ovAffil"
       ? function (n) { return n.affiliation; }
@@ -914,17 +1010,24 @@ function drawOverview() {
       return byKey[b][byKey[b].length - 1] - byKey[a][byKey[a].length - 1];
     });
     seriesSet = groups.map(function (g) {
-      return { name: g + suf, data: modeSlice(byKey[g], pr.i0, pr.i1, sMode), stack: "total", color: stableColor(g) };
+      return { name: g + suf, data: barDataFor(byKey[g], pr, sMode),
+        stack: (bar && sMode !== "ovTotal") ? "m" : null, color: stableColor(g) };
     });
   }
   var s = seriesSet.map(function (ser) {
-    return {
-      name: ser.name, type: "line", data: ser.data,
+    var serOpt = {
+      name: ser.name, type: bar ? "bar" : "line", data: ser.data,
       symbol: "none", stack: ser.stack, color: ser.color,
-      areaStyle: ser.stack ? { opacity: 0.85 } : { opacity: 0.15 },
-      lineStyle: { width: ser.stack ? 1 : 2.5, color: ser.color },
       emphasis: { focus: "series" }
     };
+    if (bar) {
+      serOpt.itemStyle = { color: ser.color };
+      serOpt.barMaxWidth = 26;
+    } else {
+      serOpt.areaStyle = ser.stack ? { opacity: 0.85 } : { opacity: 0.15 };
+      serOpt.lineStyle = { width: ser.stack ? 1 : 2.5, color: ser.color };
+    }
+    return serOpt;
   });
   if (sMode === "total" && ovYoY.checked && ST.labels.length > 12) {
     var totSeries = mode === "ovTotal"
@@ -942,13 +1045,15 @@ function drawOverview() {
       lineStyle: { type: "dashed", width: 1.5, color: "#d9a441" }, color: "#d9a441", connectNulls: false
     });
   }
+  var tip = bar
+    ? { trigger: "axis", formatter: deltaTooltip(seriesSet, sMode === "ybar" ? "year" : "month") }
+    : { trigger: "axis", valueFormatter: function (v) { return v == null ? "–" : fmt(v); } };
   ch.setOption({
     backgroundColor: "transparent",
-    tooltip: { trigger: "axis",
-      valueFormatter: function (v) { return v == null ? "–" : fmt(v); } },
+    tooltip: tip,
     legend: { textStyle: { color: "#8b94a7" }, type: "scroll", pageTextStyle: { color: "#8b94a7" } },
     grid: { left: 70, right: 60, top: 40, bottom: 30 },
-    xAxis: { type: "category", data: sub.labels, axisLabel: { color: "#8b94a7" },
+    xAxis: { type: "category", data: xLabelsFor(pr, sMode), axisLabel: { color: "#8b94a7" },
       axisLine: { lineStyle: { color: "#2a3549" } } },
     yAxis: [
       { type: "value", axisLabel: { color: "#8b94a7", formatter: formatThousand },
@@ -965,26 +1070,32 @@ function drawActiveNBs() {
   var ch = chart("ovNBChart");
   if (!ch) return;
   var sMode = segMode("nbs");
-  var pr = periodRange(), sub = subset(pr.i0, pr.i1);
+  var bar = isBarMode(sMode);
+  var pr = periodRange();
   var act = ST.grid.map(function (_, i) {
     var c = 0;
     ST.nbs.forEach(function (nb) { if ((nb.series[i] || 0) > 0.5) c++; });
     return c;
   });
+  var data = barDataFor(act, pr, sMode);
+  var ser = {
+    name: "Active NBs" + modeSuffix(sMode),
+    type: bar ? "bar" : "line", data: data,
+    symbol: "none", color: "#70ad47"
+  };
+  if (bar) ser.itemStyle = { color: "#70ad47" };
+  else { ser.areaStyle = { opacity: 0.15 }; ser.lineStyle = { width: 2.5, color: "#70ad47" }; }
   ch.setOption({
     backgroundColor: "transparent",
-    tooltip: { trigger: "axis", valueFormatter: modeTooltip },
+    tooltip: bar ? { trigger: "axis", formatter: deltaTooltip([{ name: ser.name, data: data }],
+      sMode === "ybar" ? "year" : "month") }
+      : { trigger: "axis", valueFormatter: modeTooltip },
     grid: { left: 70, right: 20, top: 20, bottom: 30 },
-    xAxis: { type: "category", data: sub.labels, axisLabel: { color: "#8b94a7" },
+    xAxis: { type: "category", data: xLabelsFor(pr, sMode), axisLabel: { color: "#8b94a7" },
       axisLine: { lineStyle: { color: "#2a3549" } } },
     yAxis: { type: "value", minInterval: 1,
       axisLabel: { color: "#8b94a7" }, splitLine: { lineStyle: { color: "#1d2637" } } },
-    series: [{
-      name: "Active NBs" + (sMode === "mom" ? " (Δ MoM)" : sMode === "yoy" ? " (Δ YoY)" : ""),
-      type: "line", data: modeSlice(act, pr.i0, pr.i1, sMode),
-      symbol: "none", areaStyle: { opacity: 0.15 }, lineStyle: { width: 2.5 },
-      color: "#70ad47"
-    }]
+    series: [ser]
   }, { notMerge: true });
 }
 
@@ -1200,25 +1311,35 @@ function drawCompare() {
   var sMode = segMode("cmp");
   var pr = periodRange(), sub = subset(pr.i0, pr.i1);
   var selNBs = ST.nbs.filter(function (n) { return sel.indexOf(n.id) >= 0; });
+  var bar = isBarMode(sMode);
   var series = selNBs.map(function (nb) {
-    return { nb: nb, data: modeSlice(nb.series, pr.i0, pr.i1, sMode) };
+    return { nb: nb, data: barDataFor(nb.series, pr, sMode) };
   });
   ch.setOption({
     backgroundColor: "transparent",
-    tooltip: { trigger: "axis", valueFormatter: modeTooltip },
+    tooltip: bar
+      ? { trigger: "axis", formatter: deltaTooltip(series, sMode === "ybar" ? "year" : "month") }
+      : { trigger: "axis", valueFormatter: modeTooltip },
     legend: { textStyle: { color: "#8b94a7" }, type: "scroll" },
     grid: { left: 70, right: 20, top: 40, bottom: 30 },
-    xAxis: { type: "category", data: sub.labels, axisLabel: { color: "#8b94a7" },
+    xAxis: { type: "category", data: xLabelsFor(pr, sMode), axisLabel: { color: "#8b94a7" },
       axisLine: { lineStyle: { color: "#2a3549" } } },
     yAxis: { type: "value", axisLabel: { color: "#8b94a7", formatter: formatThousand },
       splitLine: { lineStyle: { color: "#1d2637" } } },
     series: series.map(function (s) {
-      return {
-        name: s.nb.shortname, type: "line", data: s.data,
-        symbol: "circle", symbolSize: 4, lineStyle: { width: 2, color: nbColor(s.nb) },
-        itemStyle: { color: nbColor(s.nb) },
-        emphasis: { focus: "series" }, color: nbColor(s.nb)
+      var ser = {
+        name: s.nb.shortname, type: bar ? "bar" : "line", data: s.data,
+        barMaxWidth: 26, barGap: "15%",
+        color: nbColor(s.nb), emphasis: { focus: "series" }
       };
+      if (bar) {
+        ser.itemStyle = { color: nbColor(s.nb) };
+      } else {
+        ser.symbol = "circle"; ser.symbolSize = 4;
+        ser.lineStyle = { width: 2, color: nbColor(s.nb) };
+        ser.itemStyle = { color: nbColor(s.nb) };
+      }
+      return ser;
     }),
     color: series.map(function (s) { return nbColor(s.nb); })
   }, { notMerge: true });
@@ -1314,24 +1435,31 @@ function renderDimension(ch, chartId, table, keyFn, includeFn, seg) {
 
 function drawStacked(ch, groups, byKey, seg) {
   var sMode = segMode(seg);
-  var pr = periodRange(), sub = subset(pr.i0, pr.i1);
+  var bar = isBarMode(sMode);
+  var pr = periodRange();
+  var tDatasets = groups.map(function (g) { return { name: g, data: barDataFor(byKey[g], pr, sMode) }; });
   ch.setOption({
     backgroundColor: "transparent",
-    tooltip: { trigger: "axis", valueFormatter: function (v) { return v == null ? "–" : fmt(v); } },
+    tooltip: bar
+      ? { trigger: "axis", formatter: deltaTooltip(tDatasets, sMode === "ybar" ? "year" : "month") }
+      : { trigger: "axis", valueFormatter: function (v) { return v == null ? "–" : fmt(v); } },
     legend: { textStyle: { color: "#8b94a7" }, type: "scroll" },
     grid: { left: 70, right: 20, top: 40, bottom: 30 },
-    xAxis: { type: "category", data: sub.labels, axisLabel: { color: "#8b94a7" },
+    xAxis: { type: "category", data: xLabelsFor(pr, sMode), axisLabel: { color: "#8b94a7" },
       axisLine: { lineStyle: { color: "#2a3549" } } },
     yAxis: { type: "value", axisLabel: { color: "#8b94a7", formatter: formatThousand },
       splitLine: { lineStyle: { color: "#1d2637" } } },
     series: groups.map(function (g) {
-      return {
-        name: g + (sMode === "mom" ? " (Δ MoM)" : sMode === "yoy" ? " (Δ YoY)" : ""),
-        type: "line", stack: "m",
-        data: modeSlice(byKey[g], pr.i0, pr.i1, sMode),
-        symbol: "none", lineStyle: { width: 1, color: stableColor(g) }, areaStyle: { opacity: 0.85 },
+      var s = {
+        name: g + modeSuffix(sMode),
+        type: bar ? "bar" : "line", stack: "m",
+        data: tDatasets[groups.indexOf(g)].data,
+        symbol: "none", barMaxWidth: 26,
         emphasis: { focus: "series" }, color: stableColor(g)
       };
+      if (bar) s.itemStyle = { color: stableColor(g) };
+      else { s.lineStyle = { width: 1, color: stableColor(g) }; s.areaStyle = { opacity: 0.85 }; }
+      return s;
     }),
     color: groups.map(function (g) { return stableColor(g); })
   }, { notMerge: true });
@@ -1439,25 +1567,33 @@ function drawRecChart() {
       .sort(function (a, b) { return (b.series[pr.i1] || 0) - (a.series[pr.i1] || 0); })
       .slice(0, 10);
   }
+  var bar = isBarMode(sMode);
   var series = selNBs.map(function (nb) {
-    return { nb: nb, data: modeSlice(nb.series, pr.i0, pr.i1, sMode) };
+    return { nb: nb, data: barDataFor(nb.series, pr, sMode) };
   });
   ch.setOption({
     backgroundColor: "transparent",
-    tooltip: { trigger: "axis", valueFormatter: modeTooltip },
+    tooltip: bar
+      ? { trigger: "axis", formatter: deltaTooltip(series, sMode === "ybar" ? "year" : "month") }
+      : { trigger: "axis", valueFormatter: modeTooltip },
     legend: { textStyle: { color: "#8b94a7" }, type: "scroll" },
     grid: { left: 70, right: 20, top: 40, bottom: 30 },
-    xAxis: { type: "category", data: sub.labels, axisLabel: { color: "#8b94a7" },
+    xAxis: { type: "category", data: xLabelsFor(pr, sMode), axisLabel: { color: "#8b94a7" },
       axisLine: { lineStyle: { color: "#2a3549" } } },
     yAxis: { type: "value", axisLabel: { color: "#8b94a7", formatter: formatThousand },
       splitLine: { lineStyle: { color: "#1d2637" } } },
     series: series.map(function (s) {
-      return {
-        name: s.nb.shortname, type: "line", data: s.data,
-        symbol: "circle", symbolSize: 3, lineStyle: { width: 2, color: nbColor(s.nb) },
-        itemStyle: { color: nbColor(s.nb) },
-        emphasis: { focus: "series" }, color: nbColor(s.nb)
+      var ser = {
+        name: s.nb.shortname, type: bar ? "bar" : "line", data: s.data,
+        barMaxWidth: 22, barGap: "15%",
+        color: nbColor(s.nb), emphasis: { focus: "series" }
       };
+      ser.itemStyle = { color: nbColor(s.nb) };
+      if (!bar) {
+        ser.symbol = "circle"; ser.symbolSize = 3;
+        ser.lineStyle = { width: 2, color: nbColor(s.nb) };
+      }
+      return ser;
     }),
     color: series.map(function (s) { return nbColor(s.nb); })
   }, { notMerge: true });

@@ -115,6 +115,14 @@ if (text) {
   if (hasAff) {
     const cotecna = nbs.filter(n => n.affiliation === "Cotecna");
     ok(cotecna.length === 3, "Cotecna group has 3 NBs (incl. TOBY-SZ), got " + cotecna.length);
+    ok(!nbs.some(n => /^(bsi|eurofins)$/i.test(n.affiliation)),
+      "no BSI/Eurofins groups remain (rolled up)");
+    const ulGroup = nbs.filter(n => n.affiliation === "UL");
+    ok(ulGroup.length === 4, "UL group has 4 NBs after Eurofins roll-up, got " + ulGroup.length);
+    const indep = nbs.filter(n => n.affiliation === "Independent");
+    ok(indep.length === 33, "Independent group has 33 NBs after BSI roll-up, got " + indep.length);
+    ok(ENGINE.groupAffiliation("BSI") === "Independent" && ENGINE.groupAffiliation("EUROFINS") === "UL"
+      && ENGINE.groupAffiliation("SGS") === "SGS", "groupAffiliation mapping correct");
   } else {
     ok(stats.fallbackAffiliation === nbs.length, "legacy file: all affiliations guessed from fullname");
   }
@@ -122,6 +130,28 @@ if (text) {
   const grand = Object.values(byAff).reduce((a, s) => a + s[s.length - 1], 0);
   ok(Math.round(grand) === currentSum, "affiliation rollup preserves the total");
   ok(ENGINE.affCasingConflicts().length === 0 || true, "casing conflict report available");
+
+  // calendar-year buckets and per-year net totals
+  const buckets = ENGINE.yearBuckets(grid);
+  ok(buckets.length > 9, "yearBuckets covers " + buckets.length + " calendar years");
+  ok(buckets[0].y === grid[0].getUTCFullYear() && buckets[buckets.length - 1].y === last.getUTCFullYear(),
+    "yearBuckets spans " + buckets[0].y + ".." + buckets[buckets.length - 1].y);
+  ok(buckets.every((b, k) => k === 0 || b.y === buckets[k - 1].y + 1), "yearBuckets are consecutive years");
+  ok(buckets.every(b => grid[b.i0].getUTCFullYear() === b.y && grid[b.i1].getUTCFullYear() === b.y),
+    "each bucket stays inside its calendar year");
+  const totalSeries = ENGINE.sumSeries(ENGINE.aggregateBy(nbs, () => "*"));
+  const yt = ENGINE.yearTotals(totalSeries, grid);
+  ok(yt.length === buckets.length, "yearTotals has one value per bucket");
+  ok(yt.every(v => isFinite(v) && v > 0), "all yearly totals positive and finite");
+  const ytSum = yt.reduce((a, v) => a + v, 0);
+  ok(Math.abs(ytSum - (totalSeries[grid.length - 1])) / totalSeries[grid.length - 1] < 0.02,
+    "sum of yearly totals ~= end-of-series level (" + Math.round(ytSum) + " vs " + Math.round(totalSeries[grid.length - 1]) + ")");
+  const first = buckets[0];
+  ok(Math.abs(yt[0] - totalSeries[first.i1]) < 0.05,
+    "first (partial) year counted from 0 before data start");
+  const mid = buckets[3];
+  ok(Math.abs(yt[3] - (totalSeries[mid.i1] - totalSeries[mid.i0 - 1])) < 0.05,
+    "mid-year total = series[Dec] − series[previous Dec]");
   console.log("\nSummary: " + (failures ? failures + " FAILURE(S)" : "all tests passed"));
   process.exit(failures ? 1 : 0);
 } else {
